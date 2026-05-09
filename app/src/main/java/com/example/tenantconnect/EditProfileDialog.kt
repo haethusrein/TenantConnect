@@ -7,7 +7,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.view.isVisible
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.example.tenantconnect.databinding.DialogEditProfileTenantBinding
 import com.example.tenantconnect.databinding.DialogEditProfileLandlordBinding
@@ -25,6 +24,7 @@ class EditProfileDialog(
     private val selectImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let {
             selectedImageUri = it
+            // Dynamic Update: Show preview immediately in the dialog
             if (user.role == "Landlord") {
                 _landlordBinding?.ivProfilePreview?.setImageURI(it)
             } else {
@@ -63,6 +63,7 @@ class EditProfileDialog(
         b.etAddress.setText(user.originalAddress)
         b.etCivilStatus.setText(user.civilStatus)
         
+        // Initial display of existing photo
         user.profilePhotoUrl?.let { uriString ->
             b.ivProfilePreview.setImageURI(Uri.parse(uriString))
         }
@@ -108,6 +109,7 @@ class EditProfileDialog(
         b.etPersonalAddress.setText(user.originalAddress)
         b.etCivilStatus.setText(user.civilStatus)
         
+        // Initial display of existing photo
         user.profilePhotoUrl?.let { uriString ->
             b.ivProfilePreview.setImageURI(Uri.parse(uriString))
         }

@@ -96,7 +96,7 @@
             android:backgroundTint="@color/card_bg"
             android:paddingHorizontal="15dp"
             android:hint="Type a message..."
-            android:textColor="@color/slate"
+            android:textColor="@color/white"
             android:textColorHint="#9A8C98"
             android:textSize="14sp" />
 

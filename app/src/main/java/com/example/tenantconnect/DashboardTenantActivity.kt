@@ -12,6 +12,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.graphics.toColorInt
+import androidx.core.view.isVisible
 import com.example.tenantconnect.databinding.ActivityDashboardTenantBinding
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -52,7 +54,7 @@ class DashboardTenantActivity : AppCompatActivity() {
                     
                     for (invitationSnapshot in snapshot.children) {
                         val invitation = invitationSnapshot.getValue(Invitation::class.java)
-                        if (invitation != null && invitation.status == "Pending") {
+                        if (invitation != null && (invitation.status == "Pending")) {
                             showInvitationDialog(invitation)
                             break // Show one at a time
                         }
@@ -237,7 +239,7 @@ class DashboardTenantActivity : AppCompatActivity() {
             
             popup.setAdapter(adapter)
             popup.width = 600 
-            popup.setBackgroundDrawable(ColorDrawable(Color.parseColor("#22223B"))) 
+            popup.setBackgroundDrawable(ColorDrawable("#22223B".toColorInt()))
             
             popup.setOnItemClickListener { _, _, position, _ ->
                 when (menuItems[position]) {

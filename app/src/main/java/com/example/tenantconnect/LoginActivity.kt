@@ -8,6 +8,7 @@ import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.isVisible
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 
@@ -68,12 +69,12 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun showLoading(isLoading: Boolean) {
-        loadingOverlay.visibility = if (isLoading) View.VISIBLE else View.GONE
+        loadingOverlay.isVisible = isLoading
         btnLogin.isEnabled = !isLoading
         
         if (isLoading) {
             timeoutRunnable = Runnable {
-                if (loadingOverlay.visibility == View.VISIBLE) {
+                if (loadingOverlay.isVisible) {
                     showLoading(false)
                     Toast.makeText(this, "Connection timeout. Please check your internet or Firebase config.", Toast.LENGTH_LONG).show()
                 }
@@ -92,37 +93,41 @@ class LoginActivity : AppCompatActivity() {
             showLoading(false)
             val role = snapshot.child("role").getValue(String::class.java)
             
-            if (role == "Landlord") {
-                // For Landlords, check if they have a property set up
-                FirebaseManager.propertiesRef.orderByChild("landlordId").equalTo(userId).get()
-                    .addOnSuccessListener { propSnapshot ->
-                        val intent = if (!propSnapshot.exists()) {
-                            // If no property, go to setup
-                            Intent(this, LandlordDetailsActivity::class.java).apply {
-                                putExtra("LANDLORD_ID", userId)
+            when (role) {
+                "Landlord" -> {
+                    // For Landlords, check if they have a property set up
+                    FirebaseManager.propertiesRef.orderByChild("landlordId").equalTo(userId).get()
+                        .addOnSuccessListener { propSnapshot ->
+                            val intent = if (!propSnapshot.exists()) {
+                                // If no property, go to setup
+                                Intent(this, LandlordDetailsActivity::class.java).apply {
+                                    putExtra("LANDLORD_ID", userId)
+                                }
+                            } else {
+                                // If property exists, go to dashboard
+                                Intent(this, DashboardLandlordActivity::class.java)
                             }
-                        } else {
-                            // If property exists, go to dashboard
-                            Intent(this, DashboardLandlordActivity::class.java)
+                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            startActivity(intent)
                         }
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        startActivity(intent)
-                    }
-                    .addOnFailureListener {
-                        // Fallback to dashboard if check fails
-                        val intent = Intent(this, DashboardLandlordActivity::class.java)
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        startActivity(intent)
-                    }
-            } else if (role == "Tenant") {
-                // Tenants go to their dashboard
-                val intent = Intent(this, DashboardTenantActivity::class.java)
-                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                startActivity(intent)
-            } else {
-                // Role is null or invalid
-                FirebaseManager.auth.signOut()
-                Toast.makeText(this, "Unauthorized access or missing user role.", Toast.LENGTH_LONG).show()
+                        .addOnFailureListener {
+                            // Fallback to dashboard if check fails
+                            val intent = Intent(this, DashboardLandlordActivity::class.java)
+                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            startActivity(intent)
+                        }
+                }
+                "Tenant" -> {
+                    // Tenants go to their dashboard
+                    val intent = Intent(this, DashboardTenantActivity::class.java)
+                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    startActivity(intent)
+                }
+                else -> {
+                    // Role is null or invalid
+                    FirebaseManager.auth.signOut()
+                    Toast.makeText(this, "Unauthorized access or missing user role.", Toast.LENGTH_LONG).show()
+                }
             }
         }.addOnFailureListener {
             showLoading(false)

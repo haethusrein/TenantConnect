@@ -46,11 +46,8 @@ class ManageTenantsActivity : AppCompatActivity() {
             .addValueEventListener(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     tenantList.clear()
-                    for (child in snapshot.children) {
-                        val tenant = child.getValue(User::class.java)
-                        if (tenant != null) {
-                            tenantList.add(tenant)
-                        }
+                    snapshot.children.forEach { child ->
+                        child.getValue(User::class.java)?.let { tenantList.add(it) }
                     }
                     adapter.updateTenants(tenantList)
                 }

@@ -74,6 +74,7 @@
             android:layout_marginTop="5dp"
             android:background="@drawable/bg_input_field"
             android:paddingHorizontal="10dp"
+            android:textColor="@color/slate"
             android:inputType="text" />
 
         <TextView
@@ -90,6 +91,7 @@
             android:layout_marginTop="5dp"
             android:background="@drawable/bg_input_field"
             android:paddingHorizontal="10dp"
+            android:textColor="@color/slate"
             android:inputType="textEmailAddress" />
 
         <TextView
@@ -112,8 +114,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="40dp"
                 android:background="@drawable/bg_input_field"
-                android:paddingHorizontal="10dp"
+                android:paddingHorizontal="15dp"
                 android:inputType="textPassword"
+                android:textColor="@color/slate"
                 android:paddingTop="0dp"
                 android:paddingBottom="0dp" />
         </com.google.android.material.textfield.TextInputLayout>
@@ -138,8 +141,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="40dp"
                 android:background="@drawable/bg_input_field"
-                android:paddingHorizontal="10dp"
+                android:paddingHorizontal="15dp"
                 android:inputType="textPassword"
+                android:textColor="@color/slate"
                 android:paddingTop="0dp"
                 android:paddingBottom="0dp" />
         </com.google.android.material.textfield.TextInputLayout>

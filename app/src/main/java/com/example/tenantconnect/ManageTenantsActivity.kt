@@ -1,8 +1,17 @@
 package com.example.tenantconnect
 
+import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import android.view.View
+import android.view.ViewGroup
+import android.widget.ArrayAdapter
+import android.widget.ListPopupWindow
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.graphics.toColorInt
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.tenantconnect.databinding.ActivityManageTenantsBinding
 import com.google.firebase.database.DataSnapshot
@@ -29,6 +38,9 @@ class ManageTenantsActivity : AppCompatActivity() {
             val dialog = AddTenantDialog()
             dialog.show(supportFragmentManager, "AddTenantDialog")
         }
+        
+        setupMenu()
+        setupBottomNavigation()
     }
 
     private fun setupRecyclerView() {
@@ -47,7 +59,6 @@ class ManageTenantsActivity : AppCompatActivity() {
     private fun showEditDialog(tenant: User) {
         val tenantId = tenant.userId ?: return
         
-        // Fetch active contract for this tenant to pass to the edit dialog
         FirebaseManager.contractsRef.orderByChild("tenantId").equalTo(tenantId).get()
             .addOnSuccessListener { snapshot ->
                 val activeContract = snapshot.children.firstOrNull { 
@@ -69,6 +80,8 @@ class ManageTenantsActivity : AppCompatActivity() {
         tenantsListener = FirebaseManager.usersRef.orderByChild("landlordId").equalTo(currentLandlordId)
             .addValueEventListener(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
+                    if (isFinishing || isDestroyed) return
+                    
                     tenantList.clear()
                     snapshot.children.forEach { child ->
                         child.getValue(User::class.java)?.let { tenantList.add(it) }
@@ -103,14 +116,11 @@ class ManageTenantsActivity : AppCompatActivity() {
     }
 
     private fun performRemoval(tenantId: String) {
-        // Multi-path update to remove tenant and clean up room/contract
         val updates = hashMapOf<String, Any?>()
         
-        // 1. Update User node
         updates["users/$tenantId/landlordId"] = null
         updates["users/$tenantId/status"] = "Inactive"
 
-        // 2. Find and update Room node
         FirebaseManager.roomsRef.orderByChild("tenantId").equalTo(tenantId).get().addOnSuccessListener { roomSnapshot ->
             for (child in roomSnapshot.children) {
                 val roomId = child.key
@@ -120,7 +130,6 @@ class ManageTenantsActivity : AppCompatActivity() {
                 }
             }
             
-            // 3. Find and update/terminate Contract node
             FirebaseManager.contractsRef.orderByChild("tenantId").equalTo(tenantId).get().addOnSuccessListener { contractSnapshot ->
                 for (child in contractSnapshot.children) {
                     val contractId = child.key
@@ -129,7 +138,6 @@ class ManageTenantsActivity : AppCompatActivity() {
                     }
                 }
                 
-                // Perform the batch update
                 FirebaseManager.database.reference.updateChildren(updates)
                     .addOnSuccessListener {
                         Toast.makeText(this, "Tenant removed successfully", Toast.LENGTH_SHORT).show()
@@ -140,6 +148,75 @@ class ManageTenantsActivity : AppCompatActivity() {
             }
         }.addOnFailureListener {
             Toast.makeText(this, "Failed to fetch associated room data", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun logout() {
+        // 1. Remove all active listeners to prevent "Permission Denied" errors
+        tenantsListener?.let {
+            FirebaseManager.usersRef.removeEventListener(it)
+        }
+        tenantsListener = null
+
+        // 2. Perform sign out
+        FirebaseManager.auth.signOut()
+
+        // 3. Redirect to login
+        val intent = Intent(this, LoginActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finishAffinity()
+    }
+
+    private fun setupMenu() {
+        binding.ivMenu.setOnClickListener { view ->
+            val menuItems = arrayOf("Announcements", "Settings", "Log out")
+            val popup = ListPopupWindow(this)
+            popup.anchorView = view
+            val adapter = object : ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, menuItems) {
+                override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                    val view = super.getView(position, convertView, parent) as TextView
+                    view.setTextColor(Color.WHITE)
+                    view.setPadding(40, 30, 40, 30)
+                    view.textSize = 14f
+                    return view
+                }
+            }
+            popup.setAdapter(adapter)
+            popup.width = 600
+            popup.setBackgroundDrawable(ColorDrawable("#22223B".toColorInt()))
+            popup.setOnItemClickListener { _, _, position, _ ->
+                when (menuItems[position]) {
+                    "Announcements" -> Toast.makeText(this, "Announcements coming soon", Toast.LENGTH_SHORT).show()
+                    "Settings" -> startActivity(Intent(this, SettingsTenantActivity::class.java))
+                    "Log out" -> {
+                        popup.dismiss()
+                        logout()
+                    }
+                }
+                popup.dismiss()
+            }
+            popup.show()
+        }
+    }
+
+    private fun setupBottomNavigation() {
+        binding.bottomNav.navHome.setOnClickListener {
+            val intent = Intent(this, DashboardLandlordActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            startActivity(intent)
+        }
+        
+        binding.bottomNav.navNotifications.setOnClickListener {
+            startActivity(Intent(this, InboxLandlordActivity::class.java))
+        }
+        
+        binding.bottomNav.navPayments.setOnClickListener {
+            Toast.makeText(this, "Payments management coming soon", Toast.LENGTH_SHORT).show()
+        }
+        
+        binding.bottomNav.navProfile.setOnClickListener {
+            startActivity(Intent(this, ProfileTenantActivity::class.java))
         }
     }
 }

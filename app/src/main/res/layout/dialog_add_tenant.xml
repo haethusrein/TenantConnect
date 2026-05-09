@@ -32,7 +32,7 @@
         android:hint="Search name/email..."
         android:inputType="textEmailAddress"
         android:paddingHorizontal="15dp"
-        android:textColor="@color/black" />
+        android:textColor="@color/slate" />
 
     <ProgressBar
         android:id="@+id/progressBar"

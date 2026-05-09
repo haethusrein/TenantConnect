@@ -3,6 +3,7 @@ package com.example.tenantconnect
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
@@ -158,6 +159,13 @@ class DashboardTenantActivity : AppCompatActivity() {
             val user = snapshot.getValue(User::class.java)
             if (user != null) {
                 binding.tvGreeting.text = "Hello, ${user.firstName}!"
+                
+                user.profilePhotoUrl?.let { uriString ->
+                    binding.ivProfileSmall.setImageURI(Uri.parse(uriString))
+                } ?: run {
+                    binding.ivProfileSmall.setImageResource(R.drawable.ic_person)
+                }
+
                 // Contract and property data now handled by listenForContractChanges
             }
         }.addOnFailureListener {
@@ -222,6 +230,23 @@ class DashboardTenantActivity : AppCompatActivity() {
         binding.layoutEmpty.root.isVisible = true
     }
 
+    private fun logout() {
+        // 1. Remove all active listeners to prevent "Permission Denied" errors
+        invitationListener?.let { FirebaseManager.invitationsRef.removeEventListener(it) }
+        contractListener?.let { FirebaseManager.contractsRef.removeEventListener(it) }
+        invitationListener = null
+        contractListener = null
+
+        // 2. Perform sign out
+        FirebaseManager.auth.signOut()
+
+        // 3. Redirect to login
+        val intent = Intent(this, LoginActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finishAffinity()
+    }
+
     private fun setupMenu() {
         binding.ivMenu.setOnClickListener { view ->
             val menuItems = arrayOf("Announcements", "Settings", "Log out")
@@ -248,9 +273,8 @@ class DashboardTenantActivity : AppCompatActivity() {
                     "Announcements" -> startActivity(Intent(this, AnnouncementsTenantActivity::class.java))
                     "Settings" -> startActivity(Intent(this, SettingsTenantActivity::class.java))
                     "Log out" -> {
-                        FirebaseManager.auth.signOut()
-                        startActivity(Intent(this, LoginActivity::class.java))
-                        finishAffinity()
+                        popup.dismiss()
+                        logout()
                     }
                 }
                 popup.dismiss()

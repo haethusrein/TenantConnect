@@ -79,6 +79,7 @@
             android:background="@drawable/bg_input_field"
             android:paddingHorizontal="15dp"
             android:inputType="textEmailAddress"
+            android:textColor="@color/slate"
             android:autofillHints="emailAddress" />
 
         <TextView
@@ -105,6 +106,7 @@
                 android:background="@drawable/bg_input_field"
                 android:paddingHorizontal="15dp"
                 android:inputType="textPassword"
+                android:textColor="@color/slate"
                 android:autofillHints="password"
                 android:paddingTop="0dp"
                 android:paddingBottom="0dp" />

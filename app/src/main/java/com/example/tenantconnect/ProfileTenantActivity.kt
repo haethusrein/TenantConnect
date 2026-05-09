@@ -15,6 +15,9 @@ import androidx.core.graphics.toColorInt
 import com.example.tenantconnect.databinding.ActivityProfileTenantBinding
 import java.util.Locale
 
+import android.net.Uri
+import androidx.core.graphics.toColorInt
+
 class ProfileTenantActivity : AppCompatActivity() {
     private lateinit var binding: ActivityProfileTenantBinding
     private var currentUser: User? = null
@@ -58,6 +61,12 @@ class ProfileTenantActivity : AppCompatActivity() {
                 binding.tvOriginalAddress.text = "Original Address: ${user.originalAddress ?: "N/A"}"
                 binding.tvCivilStatus.text = "Civil Status: ${user.civilStatus ?: "N/A"}"
                 binding.tvOccupation.text = "Occupation: ${user.occupation ?: "N/A"}"
+                
+                user.profilePhotoUrl?.let { uriString ->
+                    binding.ivPhoto.setImageURI(Uri.parse(uriString))
+                } ?: run {
+                    binding.ivPhoto.setImageResource(R.drawable.ic_person)
+                }
                 
                 if (user.role == "Landlord") {
                     setupLandlordProfile(user)

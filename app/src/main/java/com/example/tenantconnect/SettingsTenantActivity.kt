@@ -36,6 +36,17 @@ class SettingsTenantActivity : AppCompatActivity() {
         }
     }
 
+    private fun logout() {
+        // 1. Perform sign out
+        FirebaseManager.auth.signOut()
+
+        // 2. Redirect to login
+        val intent = Intent(this, LoginActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finishAffinity()
+    }
+
     private fun setupMenu() {
         binding.ivMenu.setOnClickListener { view ->
             val isLandlord = currentUser?.role == "Landlord"
@@ -69,11 +80,8 @@ class SettingsTenantActivity : AppCompatActivity() {
                     }
                     "Settings" -> { /* Already here */ }
                     "Log out" -> {
-                        FirebaseManager.auth.signOut()
-                        val intent = Intent(this, LoginActivity::class.java)
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        startActivity(intent)
-                        finishAffinity()
+                        popup.dismiss()
+                        logout()
                     }
                 }
                 popup.dismiss()

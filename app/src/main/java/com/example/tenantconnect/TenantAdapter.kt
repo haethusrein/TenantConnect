@@ -1,7 +1,9 @@
 package com.example.tenantconnect
 
+import android.net.Uri
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
 import com.example.tenantconnect.databinding.ItemTenantBinding
 
@@ -24,6 +26,16 @@ class TenantAdapter(
         holder.binding.tvTenantEmail.text = tenant.email
         holder.binding.tvTenantAvatar.text = tenant.firstName?.take(1) ?: "T"
         
+        // Load photo or show initial fallback
+        tenant.profilePhotoUrl?.let { uriString ->
+            holder.binding.ivTenantPhoto.setImageURI(Uri.parse(uriString))
+            holder.binding.ivTenantPhoto.isVisible = true
+            holder.binding.tvTenantAvatar.isVisible = false
+        } ?: run {
+            holder.binding.ivTenantPhoto.isVisible = false
+            holder.binding.tvTenantAvatar.isVisible = true
+        }
+
         holder.binding.btnEditTenant.setOnClickListener {
             onEditClick(tenant)
         }

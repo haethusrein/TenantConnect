@@ -1,9 +1,10 @@
 package com.example.tenantconnect
 
+import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
 import com.example.tenantconnect.databinding.ItemTenantBinding
 
@@ -25,8 +26,19 @@ class TenantChatAdapter(
         holder.binding.tvTenantEmail.text = tenant.email
         holder.binding.tvTenantAvatar.text = tenant.firstName?.take(1) ?: "T"
         
+        // Load photo or show initial fallback
+        tenant.profilePhotoUrl?.let { uriString ->
+            holder.binding.ivTenantPhoto.setImageURI(Uri.parse(uriString))
+            holder.binding.ivTenantPhoto.isVisible = true
+            holder.binding.tvTenantAvatar.isVisible = false
+        } ?: run {
+            holder.binding.ivTenantPhoto.isVisible = false
+            holder.binding.tvTenantAvatar.isVisible = true
+        }
+
         // Hide the delete button for the chat list
         holder.binding.btnDeleteTenant.visibility = View.GONE
+        holder.binding.btnEditTenant.visibility = View.GONE
         
         holder.itemView.setOnClickListener {
             onChatClick(tenant)

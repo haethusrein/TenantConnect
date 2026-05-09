@@ -75,6 +75,7 @@
             android:layout_marginTop="5dp"
             android:background="@drawable/bg_input_field"
             android:paddingHorizontal="10dp"
+            android:textColor="@color/slate"
             android:inputType="textPersonName" />
 
         <!-- Middle Name -->
@@ -92,6 +93,7 @@
             android:layout_marginTop="5dp"
             android:background="@drawable/bg_input_field"
             android:paddingHorizontal="10dp"
+            android:textColor="@color/slate"
             android:inputType="textPersonName" />
 
         <!-- Last Name -->
@@ -109,6 +111,7 @@
             android:layout_marginTop="5dp"
             android:background="@drawable/bg_input_field"
             android:paddingHorizontal="10dp"
+            android:textColor="@color/slate"
             android:inputType="textPersonName" />
 
         <!-- Birth Date -->
@@ -129,6 +132,7 @@
             android:inputType="none"
             android:focusable="false"
             android:clickable="true"
+            android:textColor="@color/slate"
             android:hint="@string/hint_select_date" />
 
         <!-- Gender -->
@@ -149,6 +153,7 @@
             android:inputType="none"
             android:focusable="false"
             android:clickable="true"
+            android:textColor="@color/slate"
             android:hint="@string/hint_select_gender"
             android:dropDownSelector="@android:color/transparent" />
 

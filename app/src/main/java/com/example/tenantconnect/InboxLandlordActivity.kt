@@ -75,6 +75,23 @@ class InboxLandlordActivity : AppCompatActivity() {
         }
     }
 
+    private fun logout() {
+        // 1. Remove all active listeners to prevent "Permission Denied" errors
+        tenantsListener?.let {
+            FirebaseManager.usersRef.removeEventListener(it)
+        }
+        tenantsListener = null
+
+        // 2. Perform sign out
+        FirebaseManager.auth.signOut()
+
+        // 3. Redirect to login
+        val intent = Intent(this, LoginActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finishAffinity()
+    }
+
     private fun setupMenu() {
         binding.ivMenu.setOnClickListener { view ->
             val menuItems = arrayOf("Announcements", "Settings", "Log out")
@@ -101,11 +118,8 @@ class InboxLandlordActivity : AppCompatActivity() {
                         Toast.makeText(this, "Settings coming soon", Toast.LENGTH_SHORT).show()
                     }
                     "Log out" -> {
-                        FirebaseManager.auth.signOut()
-                        val intent = Intent(this, LoginActivity::class.java)
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        startActivity(intent)
-                        finishAffinity()
+                        popup.dismiss()
+                        logout()
                     }
                 }
                 popup.dismiss()

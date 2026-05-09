@@ -61,6 +61,7 @@
             android:background="@drawable/bg_input_field"
             android:paddingHorizontal="10dp"
             android:hint="e.g., Green Garden Apartments"
+            android:textColor="@color/slate"
             android:inputType="text" />
 
         <TextView
@@ -78,6 +79,7 @@
             android:background="@drawable/bg_input_field"
             android:paddingHorizontal="10dp"
             android:hint="Complete Address"
+            android:textColor="@color/slate"
             android:inputType="textPostalAddress" />
 
         <TextView
@@ -95,6 +97,7 @@
             android:background="@drawable/bg_input_field"
             android:paddingHorizontal="10dp"
             android:hint="e.g., 20"
+            android:textColor="@color/slate"
             android:inputType="number" />
 
         <TextView

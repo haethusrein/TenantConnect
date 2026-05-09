@@ -117,10 +117,7 @@ class AnnouncementsTenantActivity : AppCompatActivity() {
 
     private fun setupMenu() {
         binding.ivMenu.setOnClickListener { view ->
-            val menuItems = arrayOf(
-                "Profile", "Announcements", "Payments", 
-                "Accommodation", "Contact Landlord", "Settings", "Log out"
-            )
+            val menuItems = arrayOf("Announcements", "Settings", "Log out")
             val popup = ListPopupWindow(this)
             popup.anchorView = view
             val adapter = object : ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, menuItems) {
@@ -137,11 +134,7 @@ class AnnouncementsTenantActivity : AppCompatActivity() {
             popup.setBackgroundDrawable(ColorDrawable(Color.parseColor("#22223B")))
             popup.setOnItemClickListener { _, _, position, _ ->
                 when (menuItems[position]) {
-                    "Profile" -> startActivity(Intent(this, ProfileTenantActivity::class.java))
                     "Announcements" -> { /* Already here */ }
-                    "Payments" -> startActivity(Intent(this, PaymentTenantActivity::class.java))
-                    "Accommodation" -> startActivity(Intent(this, ViewContractActivity::class.java))
-                    "Contact Landlord" -> startActivity(Intent(this, InboxTenantActivity::class.java))
                     "Settings" -> startActivity(Intent(this, SettingsTenantActivity::class.java))
                     "Log out" -> {
                         FirebaseManager.auth.signOut()

@@ -5,27 +5,38 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
-import androidx.fragment.app.DialogFragment
+import android.view.View
+import android.view.ViewGroup
+import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.example.tenantconnect.databinding.DialogRoomSetupBinding
 
-class RoomSetupDialog(private val invitation: Invitation) : DialogFragment() {
+class RoomSetupDialog(private val invitation: Invitation) : BottomSheetDialogFragment() {
     private var _binding: DialogRoomSetupBinding? = null
     private val binding get() = _binding!!
 
-    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        _binding = DialogRoomSetupBinding.inflate(LayoutInflater.from(context))
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = DialogRoomSetupBinding.inflate(inflater, container, false)
+        return binding.root
+    }
 
-        val builder = AlertDialog.Builder(requireContext())
-        builder.setView(binding.root)
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
 
         binding.btnConfirm.setOnClickListener {
             val roomNumber = binding.etRoomNumber.text.toString().trim()
-            val rentAmount = binding.etMonthlyRent.text.toString().trim().toDoubleOrNull() ?: 0.0
+            val rentAmountStr = binding.etMonthlyRent.text.toString().trim()
 
             if (roomNumber.isEmpty()) {
-                Toast.makeText(context, "Please enter a room unit.", Toast.LENGTH_SHORT).show()
+                binding.etRoomNumber.error = "Please enter a room unit"
+                binding.etRoomNumber.requestFocus()
                 return@setOnClickListener
             }
+            
+            val rentAmount = rentAmountStr.toDoubleOrNull() ?: 0.0
 
             finalizeSetup(roomNumber, rentAmount)
         }
@@ -33,8 +44,6 @@ class RoomSetupDialog(private val invitation: Invitation) : DialogFragment() {
         binding.btnCancel.setOnClickListener {
             dismiss()
         }
-
-        return builder.create()
     }
 
     private fun finalizeSetup(roomNumber: String, rentAmount: Double) {

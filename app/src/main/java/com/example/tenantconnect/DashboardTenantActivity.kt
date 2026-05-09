@@ -197,32 +197,13 @@ class DashboardTenantActivity : AppCompatActivity() {
     }
 
     private fun showNoAccommodationState() {
-        val msg = "no accommodation. Please tell your landlord to register you as their tenant."
-        
-        // Announcements Box
-        binding.tvAnnouncementsContent.text = msg
-        
-        // Payment Box
-        binding.tvPaymentLabel.visibility = View.GONE
-        binding.tvPaymentDueDate.visibility = View.GONE
-        binding.tvPaymentAmount.text = msg
-        binding.tvPaymentAmount.textSize = 14f
-        binding.tvPaymentAmount.setPadding(0, 20, 0, 0)
-        
-        // Accommodations Box
-        binding.tvAccommodationLabel.visibility = View.GONE
-        binding.tvAccommodationAddress.visibility = View.GONE
-        binding.tvAccommodation.text = msg
-        binding.tvAccommodation.textSize = 14f
-        binding.tvAccommodation.setPadding(0, 20, 0, 0)
+        binding.mainContentLayout.visibility = View.GONE
+        binding.layoutEmpty.root.visibility = View.VISIBLE
     }
 
     private fun setupMenu() {
         binding.ivMenu.setOnClickListener { view ->
-            val menuItems = arrayOf(
-                "Profile", "Announcements", "Payments", 
-                "Accommodation", "Contact Landlord", "Settings", "Log out"
-            )
+            val menuItems = arrayOf("Announcements", "Settings", "Log out")
             
             val popup = ListPopupWindow(this)
             popup.anchorView = view
@@ -243,14 +224,7 @@ class DashboardTenantActivity : AppCompatActivity() {
             
             popup.setOnItemClickListener { _, _, position, _ ->
                 when (menuItems[position]) {
-                    "Profile" -> startActivity(Intent(this, ProfileTenantActivity::class.java))
                     "Announcements" -> startActivity(Intent(this, AnnouncementsTenantActivity::class.java))
-                    "Payments" -> startActivity(Intent(this, PaymentTenantActivity::class.java))
-                    "Accommodation" -> startActivity(Intent(this, ViewContractActivity::class.java))
-                    "Contact Landlord" -> {
-                        val intent = Intent(this, InboxTenantActivity::class.java)
-                        startActivity(intent)
-                    }
                     "Settings" -> startActivity(Intent(this, SettingsTenantActivity::class.java))
                     "Log out" -> {
                         FirebaseManager.auth.signOut()

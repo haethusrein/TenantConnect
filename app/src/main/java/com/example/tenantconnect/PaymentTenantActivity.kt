@@ -41,23 +41,8 @@ class PaymentTenantActivity : AppCompatActivity() {
     }
 
     private fun showNoAccommodationState() {
-        val msg = "no accommodation. Please tell your landlord to register you as their tenant."
-        
-        // Dues Box
-        binding.tvPaymentLabel.visibility = View.GONE
-        binding.tvPaymentDueDate.visibility = View.GONE
-        binding.tvPaymentAmount.text = msg
-        binding.tvPaymentAmount.textSize = 14f
-        binding.tvPaymentAmount.setPadding(0, 20, 0, 0)
-        
-        // History Box
-        binding.llHistoryPreview.visibility = View.GONE
-        val noHistoryTv = TextView(this).apply {
-            text = "No history available."
-            setTextColor(Color.WHITE)
-            textSize = 12f
-        }
-        (binding.llHistoryPreview.parent as ViewGroup).addView(noHistoryTv, 1)
+        binding.mainContentLayout.visibility = View.GONE
+        binding.layoutEmpty.root.visibility = View.VISIBLE
     }
     
     private fun setupButtons() {
@@ -74,10 +59,7 @@ class PaymentTenantActivity : AppCompatActivity() {
 
     private fun setupMenu() {
         binding.ivMenu.setOnClickListener { view ->
-            val menuItems = arrayOf(
-                "Profile", "Announcements", "Payments", 
-                "Accommodation", "Contact Landlord", "Settings", "Log out"
-            )
+            val menuItems = arrayOf("Announcements", "Settings", "Log out")
             val popup = ListPopupWindow(this)
             popup.anchorView = view
             val adapter = object : ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, menuItems) {
@@ -94,11 +76,7 @@ class PaymentTenantActivity : AppCompatActivity() {
             popup.setBackgroundDrawable(ColorDrawable(Color.parseColor("#22223B")))
             popup.setOnItemClickListener { _, _, position, _ ->
                 when (menuItems[position]) {
-                    "Profile" -> startActivity(Intent(this, ProfileTenantActivity::class.java))
                     "Announcements" -> startActivity(Intent(this, AnnouncementsTenantActivity::class.java))
-                    "Payments" -> { /* Already here */ }
-                    "Accommodation" -> startActivity(Intent(this, ViewContractActivity::class.java))
-                    "Contact Landlord" -> startActivity(Intent(this, InboxTenantActivity::class.java))
                     "Settings" -> startActivity(Intent(this, SettingsTenantActivity::class.java))
                     "Log out" -> {
                         FirebaseManager.auth.signOut()

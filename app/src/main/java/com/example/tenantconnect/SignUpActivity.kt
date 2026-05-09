@@ -72,8 +72,19 @@ class SignUpActivity : AppCompatActivity() {
             val birthDate = etBirthDate.text.toString().trim()
             val gender = etGender.text.toString().trim()
 
-            if (firstName.isEmpty() || lastName.isEmpty() || birthDate.isEmpty()) {
-                Toast.makeText(this, "Please fill in all required fields", Toast.LENGTH_SHORT).show()
+            if (firstName.isEmpty()) {
+                etFirstName.error = "First name is required"
+                etFirstName.requestFocus()
+                return@setOnClickListener
+            }
+            if (lastName.isEmpty()) {
+                etLastName.error = "Last name is required"
+                etLastName.requestFocus()
+                return@setOnClickListener
+            }
+            if (birthDate.isEmpty()) {
+                etBirthDate.error = "Birth date is required"
+                etBirthDate.requestFocus()
                 return@setOnClickListener
             }
 

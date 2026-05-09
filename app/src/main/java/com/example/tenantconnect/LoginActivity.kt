@@ -38,8 +38,14 @@ class LoginActivity : AppCompatActivity() {
             val email = etEmail.text.toString().trim()
             val password = etPassword.text.toString().trim()
 
-            if (email.isEmpty() || password.isEmpty()) {
-                Toast.makeText(this, "Please fill in all fields", Toast.LENGTH_SHORT).show()
+            if (email.isEmpty()) {
+                etEmail.error = "Email is required"
+                etEmail.requestFocus()
+                return@setOnClickListener
+            }
+            if (password.isEmpty()) {
+                etPassword.error = "Password is required"
+                etPassword.requestFocus()
                 return@setOnClickListener
             }
 

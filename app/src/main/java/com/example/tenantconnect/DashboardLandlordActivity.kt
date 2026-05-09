@@ -1,11 +1,17 @@
 package com.example.tenantconnect
 
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.View
-import android.widget.PopupMenu
+import android.view.ViewGroup
+import android.widget.ArrayAdapter
+import android.widget.ListPopupWindow
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.graphics.toColorInt
 import com.example.tenantconnect.databinding.ActivityDashboardLandlordBinding
 
 class DashboardLandlordActivity : AppCompatActivity() {
@@ -37,7 +43,7 @@ class DashboardLandlordActivity : AppCompatActivity() {
         }
 
         binding.ivMenu.setOnClickListener { view ->
-            showPopupMenu(view)
+            setupMenu(view)
         }
 
         setupBottomNavigation()
@@ -56,56 +62,42 @@ class DashboardLandlordActivity : AppCompatActivity() {
             }
     }
 
-    private fun showPopupMenu(view: View) {
-        val popup = PopupMenu(this, view)
-        popup.menu.add("Profile")
-        popup.menu.add("Tenants")
-        popup.menu.add("Payments")
-        popup.menu.add("Notifications")
-        popup.menu.add("Inbox")
-        popup.menu.add("Announcements")
-        popup.menu.add("Settings")
-        popup.menu.add("Log Out")
+    private fun setupMenu(view: View) {
+        val menuItems = arrayOf("Announcements", "Settings", "Log Out")
         
-        popup.setOnMenuItemClickListener { item ->
-            when (item.title) {
-                "Profile" -> {
-                    startActivity(Intent(this, ProfileTenantActivity::class.java))
-                    true
-                }
-                "Tenants" -> {
-                    startActivity(Intent(this, ManageTenantsActivity::class.java))
-                    true
-                }
-                "Payments" -> {
-                    Toast.makeText(this, "Payments coming soon", Toast.LENGTH_SHORT).show()
-                    true
-                }
-                "Notifications" -> {
-                    Toast.makeText(this, "Notifications coming soon", Toast.LENGTH_SHORT).show()
-                    true
-                }
-                "Inbox" -> {
-                    startActivity(Intent(this, InboxTenantActivity::class.java))
-                    true
-                }
+        val popup = ListPopupWindow(this)
+        popup.anchorView = view
+        
+        val adapter = object : ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, menuItems) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val view = super.getView(position, convertView, parent) as TextView
+                view.setTextColor(Color.WHITE)
+                view.setPadding(40, 30, 40, 30)
+                view.textSize = 14f
+                return view
+            }
+        }
+        
+        popup.setAdapter(adapter)
+        popup.width = 600 
+        popup.setBackgroundDrawable(ColorDrawable("#22223B".toColorInt()))
+        
+        popup.setOnItemClickListener { _, _, position, _ ->
+            when (menuItems[position]) {
                 "Announcements" -> {
                     Toast.makeText(this, "Announcements coming soon", Toast.LENGTH_SHORT).show()
-                    true
                 }
                 "Settings" -> {
                     Toast.makeText(this, "Settings coming soon", Toast.LENGTH_SHORT).show()
-                    true
                 }
                 "Log Out" -> {
                     FirebaseManager.auth.signOut()
                     val intent = Intent(this, LoginActivity::class.java)
                     intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                     startActivity(intent)
-                    true
                 }
-                else -> false
             }
+            popup.dismiss()
         }
         popup.show()
     }

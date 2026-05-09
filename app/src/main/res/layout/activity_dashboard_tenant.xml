@@ -35,12 +35,14 @@
     </RelativeLayout>
 
     <ScrollView
+        android:id="@+id/scroll_view_main"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         app:layout_constraintBottom_toTopOf="@id/bottom_nav"
         app:layout_constraintTop_toBottomOf="@id/top_bar">
 
         <LinearLayout
+            android:id="@+id/main_content_layout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
@@ -226,6 +228,14 @@
 
         </LinearLayout>
     </ScrollView>
+
+    <include
+        android:id="@+id/layout_empty"
+        layout="@layout/layout_empty_accommodation"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toTopOf="@id/bottom_nav"
+        app:layout_constraintTop_toBottomOf="@id/top_bar" />
 
     <include
         android:id="@+id/bottom_nav"

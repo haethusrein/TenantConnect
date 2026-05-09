@@ -6,35 +6,41 @@ import android.view.LayoutInflater
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
-import androidx.fragment.app.DialogFragment
+import android.view.ViewGroup
+import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.example.tenantconnect.databinding.DialogAddTenantBinding
 
 import androidx.core.view.isVisible
 
-class AddTenantDialog : DialogFragment() {
+class AddTenantDialog : BottomSheetDialogFragment() {
     private var _binding: DialogAddTenantBinding? = null
     private val binding get() = _binding!!
 
-    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        _binding = DialogAddTenantBinding.inflate(LayoutInflater.from(context))
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = DialogAddTenantBinding.inflate(inflater, container, false)
+        return binding.root
+    }
 
-        val builder = AlertDialog.Builder(requireContext())
-        builder.setView(binding.root)
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
 
         binding.btnAddTenant.setOnClickListener {
             val query = binding.etTenantSearch.text.toString().trim()
             if (query.isNotEmpty()) {
                 searchAndAddTenant(query)
             } else {
-                Toast.makeText(context, "Please enter an email address", Toast.LENGTH_SHORT).show()
+                binding.etTenantSearch.error = "Please enter an email address"
+                binding.etTenantSearch.requestFocus()
             }
         }
 
         binding.btnCancel.setOnClickListener {
             dismiss()
         }
-
-        return builder.create()
     }
 
     private fun showLoading(isLoading: Boolean) {

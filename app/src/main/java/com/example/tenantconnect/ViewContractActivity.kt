@@ -23,7 +23,11 @@ class ViewContractActivity : AppCompatActivity() {
 
     private fun checkContractStatus(userId: String) {
         FirebaseManager.contractsRef.orderByChild("tenantId").equalTo(userId).get().addOnSuccessListener { snapshot ->
-            if (!snapshot.exists()) {
+            val activeContract = snapshot.children.firstOrNull { 
+                it.child("status").getValue(String::class.java) == "Active" 
+            }?.getValue(Contract::class.java)
+
+            if (activeContract == null) {
                 binding.tvContractStatus.text = "None"
                 binding.tvContractStatus.setBackgroundResource(R.drawable.bg_status_badge)
                 
@@ -32,7 +36,26 @@ class ViewContractActivity : AppCompatActivity() {
                 binding.tvPropertyName.text = "None"
                 binding.tvSignedDate.text = "No active contract found."
             } else {
-                // Load real data if available
+                binding.tvContractStatus.text = activeContract.status
+                binding.tvSignedDate.text = "Started: ${activeContract.startDate}"
+                
+                // Fetch Landlord Name
+                FirebaseManager.usersRef.child(activeContract.landlordId ?: "").get().addOnSuccessListener { userSnap ->
+                    val landlord = userSnap.getValue(User::class.java)
+                    binding.tvLandlordName.text = "${landlord?.firstName} ${landlord?.lastName}"
+                }
+
+                // Fetch Tenant Name
+                FirebaseManager.usersRef.child(userId).get().addOnSuccessListener { userSnap ->
+                    val tenant = userSnap.getValue(User::class.java)
+                    binding.tvTenantName.text = "${tenant?.firstName} ${tenant?.lastName}"
+                }
+
+                // Fetch Property Name
+                FirebaseManager.propertiesRef.child(activeContract.propertyId ?: "").get().addOnSuccessListener { propSnap ->
+                    val property = propSnap.getValue(Property::class.java)
+                    binding.tvPropertyName.text = property?.propertyName ?: "Unknown Property"
+                }
             }
         }.addOnFailureListener {
             Toast.makeText(this, "Error checking contract", Toast.LENGTH_SHORT).show()

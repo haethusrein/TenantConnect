@@ -64,133 +64,18 @@
     </LinearLayout>
 
     <ScrollView
+        android:id="@+id/scroll_view"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         app:layout_constraintBottom_toTopOf="@id/message_input_area"
         app:layout_constraintTop_toBottomOf="@id/sub_header">
-
         <LinearLayout
+            android:id="@+id/ll_messages_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:padding="20dp">
-
-            <!-- Chat Header Card -->
-            <androidx.cardview.widget.CardView
-                android:layout_width="match_parent"
-                android:layout_height="80dp"
-                android:layout_marginBottom="20dp"
-                app:cardBackgroundColor="@color/card_bg"
-                app:cardCornerRadius="25dp">
-                <RelativeLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:paddingHorizontal="15dp">
-                    <TextView
-                        android:id="@+id/avatar_chat"
-                        android:layout_width="50dp"
-                        android:layout_height="50dp"
-                        android:layout_centerVertical="true"
-                        android:background="@drawable/bg_status_badge"
-                        android:backgroundTint="#9E9E9E"
-                        android:gravity="center"
-                        android:text="JC"
-                        android:textColor="@color/white"
-                        android:textSize="18sp"
-                        android:textStyle="bold" />
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_centerVertical="true"
-                        android:layout_marginStart="15dp"
-                        android:layout_toEndOf="@id/avatar_chat"
-                        android:orientation="vertical">
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="John Cruz • Landlord"
-                            android:textColor="@color/white"
-                            android:textStyle="bold" />
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Please settle your rent by the 2nd..."
-                            android:textColor="@color/white"
-                            android:textSize="10sp" />
-                    </LinearLayout>
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_alignParentEnd="true"
-                        android:layout_marginTop="15dp"
-                        android:text="10:42 AM"
-                        android:textColor="@color/white"
-                        android:textSize="10sp" />
-                </RelativeLayout>
-            </androidx.cardview.widget.CardView>
-
-            <!-- Message Bubbles -->
-            <androidx.cardview.widget.CardView
-                android:layout_width="250dp"
-                android:layout_height="wrap_content"
-                app:cardBackgroundColor="@color/card_bg"
-                app:cardCornerRadius="15dp"
-                android:layout_marginBottom="10dp">
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="10dp">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="John Cruz"
-                        android:textColor="#9A8C98"
-                        android:textSize="10sp" />
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Hi Charles, this is a reminder that your rent is due on May 2nd."
-                        android:textColor="@color/white"
-                        android:textSize="12sp" />
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="start"
-                        android:text="10:30 AM"
-                        android:textColor="#9A8C98"
-                        android:textSize="8sp" />
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
-
-            <androidx.cardview.widget.CardView
-                android:layout_width="250dp"
-                android:layout_height="wrap_content"
-                android:layout_gravity="end"
-                app:cardBackgroundColor="#9A8C98"
-                app:cardCornerRadius="15dp"
-                android:layout_marginBottom="10dp">
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="10dp">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Noted po, Sir! I'll pay on the 2nd."
-                        android:textColor="@color/white"
-                        android:textSize="12sp" />
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="end"
-                        android:text="10:55 AM"
-                        android:textColor="@color/off_white"
-                        android:textSize="8sp" />
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
-
+            <!-- Messages will be added here dynamically -->
         </LinearLayout>
     </ScrollView>
 

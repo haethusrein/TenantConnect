@@ -7,4 +7,9 @@
         <item name="colorSecondary">@color/slate</item>
         <item name="android:statusBarColor">@color/navy</item>
     </style>
+
+    <style name="TransparentDialog" parent="Theme.AppCompat.Dialog">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
 </resources>

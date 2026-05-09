@@ -95,27 +95,28 @@ class LoginActivity : AppCompatActivity() {
             
             when (role) {
                 "Landlord" -> {
-                    // For Landlords, check if they have a property set up
-                    FirebaseManager.propertiesRef.orderByChild("landlordId").equalTo(userId).get()
-                        .addOnSuccessListener { propSnapshot ->
-                            val intent = if (!propSnapshot.exists()) {
-                                // If no property, go to setup
-                                Intent(this, LandlordDetailsActivity::class.java).apply {
-                                    putExtra("LANDLORD_ID", userId)
+                    // Check if property is set up via user's propertyId field first
+                    val propertyId = snapshot.child("propertyId").getValue(String::class.java)
+                    
+                    if (propertyId.isNullOrEmpty()) {
+                        // Double check the properties node just in case
+                        FirebaseManager.propertiesRef.orderByChild("landlordId").equalTo(userId).get()
+                            .addOnSuccessListener { propSnapshot ->
+                                val intent = if (!propSnapshot.exists()) {
+                                    Intent(this, LandlordDetailsActivity::class.java).apply {
+                                        putExtra("LANDLORD_ID", userId)
+                                    }
+                                } else {
+                                    Intent(this, DashboardLandlordActivity::class.java)
                                 }
-                            } else {
-                                // If property exists, go to dashboard
-                                Intent(this, DashboardLandlordActivity::class.java)
+                                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                startActivity(intent)
                             }
-                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                            startActivity(intent)
-                        }
-                        .addOnFailureListener {
-                            // Fallback to dashboard if check fails
-                            val intent = Intent(this, DashboardLandlordActivity::class.java)
-                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                            startActivity(intent)
-                        }
+                    } else {
+                        val intent = Intent(this, DashboardLandlordActivity::class.java)
+                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        startActivity(intent)
+                    }
                 }
                 "Tenant" -> {
                     // Tenants go to their dashboard

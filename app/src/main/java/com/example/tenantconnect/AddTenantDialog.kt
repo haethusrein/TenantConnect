@@ -64,23 +64,25 @@ class AddTenantDialog : DialogFragment() {
                             }
                             binding.btnAddTenant.text = "Send Invitation"
                         } else {
-                            binding.tvSearchResult.text = "Tenant already registered elsewhere."
-                            binding.tvSearchResult.setTextColor(binding.root.context.getColor(android.R.color.holo_red_dark))
+                            showError("Tenant Registered", "This tenant is already registered to another landlord.")
                             binding.btnAddTenant.isEnabled = false
                         }
                     } else {
-                        binding.tvSearchResult.text = "User is not a tenant."
-                        binding.tvSearchResult.isVisible = true
+                        showError("Invalid User", "The account found is not a registered tenant.")
                     }
                 } else {
-                    binding.tvSearchResult.text = "No user found with that email."
-                    binding.tvSearchResult.isVisible = true
+                    showError("Not Found", "No tenant account found with the email: $query")
                 }
             }
             .addOnFailureListener {
                 showLoading(false)
-                Toast.makeText(context, "Search failed: ${it.message}", Toast.LENGTH_SHORT).show()
+                showError("Search Error", "Firebase index not defined or connection issue. Please check your database rules.")
             }
+    }
+
+    private fun showError(title: String, message: String) {
+        CustomAlertDialog.newInstance(title, message)
+            .show(parentFragmentManager, "CustomAlert")
     }
 
     private fun sendInvitation(tenantUid: String, tenant: User) {

@@ -16,9 +16,15 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
 
+import android.view.LayoutInflater
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
 class InboxTenantActivity : AppCompatActivity() {
     private lateinit var binding: ActivityInboxTenantBinding
-    private var landlordId: String? = null
+    private var targetUserId: String? = null
+    private var isLandlordMode: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,37 +33,75 @@ class InboxTenantActivity : AppCompatActivity() {
         
         binding.ivBack.setOnClickListener { finish() }
         
-        fetchLandlordInfo()
-        setupMessaging()
+        determineModeAndPartner()
         setupMenu()
         setupBottomNavigation()
     }
 
-    private fun fetchLandlordInfo() {
+    private fun determineModeAndPartner() {
         val currentUserId = FirebaseManager.auth.currentUser?.uid ?: return
+        
         FirebaseManager.usersRef.child(currentUserId).get().addOnSuccessListener { snapshot ->
-            landlordId = snapshot.child("landlordId").getValue(String::class.java)
+            val role = snapshot.child("role").getValue(String::class.java)
+            isLandlordMode = (role == "Landlord")
+            
+            if (isLandlordMode) {
+                // For landlord, we need a list of tenants to talk to. 
+                // For now, let's assume we pick the first tenant linked to this landlord.
+                FirebaseManager.usersRef.orderByChild("landlordId").equalTo(currentUserId).limitToFirst(1).get()
+                    .addOnSuccessListener { tenantSnapshot ->
+                        targetUserId = tenantSnapshot.children.firstOrNull()?.key
+                        if (targetUserId != null) {
+                            setupMessaging()
+                        } else {
+                            Toast.makeText(this, "No tenants found to message.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+            } else {
+                // For tenant, target is their landlord
+                targetUserId = snapshot.child("landlordId").getValue(String::class.java)
+                if (targetUserId != null) {
+                    setupMessaging()
+                } else {
+                    Toast.makeText(this, "No landlord connected yet.", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 
     private fun setupMessaging() {
         val currentUserId = FirebaseManager.auth.currentUser?.uid ?: return
+        val partnerId = targetUserId ?: return
         
         // Listen for messages in real-time
         FirebaseManager.messagesRef.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
+                if (isFinishing || isDestroyed) return
+                
+                binding.llMessagesContainer.removeAllViews()
                 val messages = mutableListOf<Message>()
                 for (child in snapshot.children) {
                     val message = child.getValue(Message::class.java)
                     if (message != null) {
-                        // Filter for conversation between this tenant and their landlord
-                        if ((message.senderId == currentUserId && message.receiverId == landlordId) ||
-                            (message.senderId == landlordId && message.receiverId == currentUserId)) {
+                        // Filter for conversation between this user and their partner
+                        if ((message.senderId == currentUserId && message.receiverId == partnerId) ||
+                            (message.senderId == partnerId && message.receiverId == currentUserId)) {
                             messages.add(message)
                         }
                     }
                 }
-                // Update UI here
+                
+                // Sort by timestamp
+                messages.sortBy { it.timestamp }
+                
+                for (msg in messages) {
+                    addMessageBubble(msg, currentUserId)
+                }
+                
+                // Scroll to bottom
+                binding.scrollView.post {
+                    binding.scrollView.fullScroll(View.FOCUS_DOWN)
+                }
             }
 
             override fun onCancelled(error: DatabaseError) {
@@ -68,22 +112,42 @@ class InboxTenantActivity : AppCompatActivity() {
         binding.btnSend.setOnClickListener {
             val text = binding.etMessage.text.toString().trim()
             if (text.isNotEmpty()) {
-                if (landlordId != null) {
+                if (targetUserId != null) {
                     sendMessage(currentUserId, text)
-                } else {
-                    Toast.makeText(this, "No landlord connected yet.", Toast.LENGTH_SHORT).show()
                 }
             }
         }
     }
 
+    private fun addMessageBubble(message: Message, currentUserId: String) {
+        val isMe = message.senderId == currentUserId
+        val layoutRes = if (isMe) R.layout.item_message_right else R.layout.item_message_left
+        val view = LayoutInflater.from(this).inflate(layoutRes, binding.llMessagesContainer, false)
+        
+        val tvMessage = view.findViewById<TextView>(R.id.tv_message)
+        val tvTime = view.findViewById<TextView>(R.id.tv_time)
+        val tvSender = if (!isMe) view.findViewById<TextView>(R.id.tv_sender) else null
+
+        tvMessage.text = message.messageText
+        
+        val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
+        tvTime.text = sdf.format(Date(message.timestamp ?: 0L))
+
+        if (!isMe && tvSender != null) {
+            // Optional: fetch sender name for better UI
+            tvSender.text = if (isLandlordMode) "Tenant" else "Landlord"
+        }
+
+        binding.llMessagesContainer.addView(view)
+    }
+
     private fun sendMessage(senderId: String, text: String) {
-        val targetLandlordId = landlordId ?: return
+        val partnerId = targetUserId ?: return
         val messageId = FirebaseManager.messagesRef.push().key ?: return
         val message = Message(
             messageId = messageId,
             senderId = senderId,
-            receiverId = targetLandlordId,
+            receiverId = partnerId,
             messageText = text,
             timestamp = System.currentTimeMillis()
         )

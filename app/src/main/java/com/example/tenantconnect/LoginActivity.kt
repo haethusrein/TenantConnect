@@ -19,6 +19,8 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var btnTopSignup: Button
     private lateinit var tvErrorMsg: TextView
     private lateinit var loadingOverlay: View
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var timeoutRunnable: Runnable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,12 +72,16 @@ class LoginActivity : AppCompatActivity() {
         btnLogin.isEnabled = !isLoading
         
         if (isLoading) {
-            loadingOverlay.postDelayed({
+            timeoutRunnable = Runnable {
                 if (loadingOverlay.visibility == View.VISIBLE) {
                     showLoading(false)
                     Toast.makeText(this, "Connection timeout. Please check your internet or Firebase config.", Toast.LENGTH_LONG).show()
                 }
-            }, 10000) // 10 second timeout
+            }
+            handler.postDelayed(timeoutRunnable!!, 10000) // 10 second timeout
+        } else {
+            timeoutRunnable?.let { handler.removeCallbacks(it) }
+            timeoutRunnable = null
         }
     }
 
@@ -108,11 +114,15 @@ class LoginActivity : AppCompatActivity() {
                         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                         startActivity(intent)
                     }
-            } else {
+            } else if (role == "Tenant") {
                 // Tenants go to their dashboard
                 val intent = Intent(this, DashboardTenantActivity::class.java)
                 intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 startActivity(intent)
+            } else {
+                // Role is null or invalid
+                FirebaseManager.auth.signOut()
+                Toast.makeText(this, "Unauthorized access or missing user role.", Toast.LENGTH_LONG).show()
             }
         }.addOnFailureListener {
             showLoading(false)

@@ -7,6 +7,7 @@ import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.EditText
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import java.util.Calendar
 
@@ -66,12 +67,22 @@ class SignUpActivity : AppCompatActivity() {
 
         // Handle Next step
         btnNext.setOnClickListener {
+            val firstName = etFirstName.text.toString().trim()
+            val lastName = etLastName.text.toString().trim()
+            val birthDate = etBirthDate.text.toString().trim()
+            val gender = etGender.text.toString().trim()
+
+            if (firstName.isEmpty() || lastName.isEmpty() || birthDate.isEmpty()) {
+                Toast.makeText(this, "Please fill in all required fields", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
             val intent = Intent(this, SignUpStep2Activity::class.java)
-            intent.putExtra("firstName", etFirstName.text.toString())
-            intent.putExtra("middleName", etMiddleName.text.toString())
-            intent.putExtra("lastName", etLastName.text.toString())
-            intent.putExtra("birthDate", etBirthDate.text.toString())
-            intent.putExtra("gender", etGender.text.toString())
+            intent.putExtra("firstName", firstName)
+            intent.putExtra("middleName", etMiddleName.text.toString().trim())
+            intent.putExtra("lastName", lastName)
+            intent.putExtra("birthDate", birthDate)
+            intent.putExtra("gender", gender)
             startActivity(intent)
         }
     }

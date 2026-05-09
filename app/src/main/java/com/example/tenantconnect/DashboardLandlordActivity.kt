@@ -112,6 +112,8 @@ class DashboardLandlordActivity : AppCompatActivity() {
 
     private fun loadLandlordData(userId: String) {
         FirebaseManager.usersRef.child(userId).get().addOnSuccessListener { snapshot ->
+            if (isFinishing || isDestroyed) return@addOnSuccessListener
+            
             val user = snapshot.getValue(User::class.java)
             if (user != null) {
                 binding.tvGreeting.text = "Welcome, ${user.firstName}!"
@@ -121,6 +123,8 @@ class DashboardLandlordActivity : AppCompatActivity() {
         // Load actual stats
         FirebaseManager.roomsRef.orderByChild("landlordId").equalTo(userId).get()
             .addOnSuccessListener { snapshot ->
+                if (isFinishing || isDestroyed) return@addOnSuccessListener
+
                 val total = snapshot.childrenCount
                 var occupied = 0
                 snapshot.children.forEach { roomSnapshot ->

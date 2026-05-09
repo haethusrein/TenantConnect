@@ -20,6 +20,7 @@ import com.google.firebase.database.ValueEventListener
 class DashboardTenantActivity : AppCompatActivity() {
     private lateinit var binding: ActivityDashboardTenantBinding
     private var invitationListener: ValueEventListener? = null
+    private var isDialogShowing = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,6 +47,8 @@ class DashboardTenantActivity : AppCompatActivity() {
         invitationListener = FirebaseManager.invitationsRef.orderByChild("tenantId").equalTo(userId)
             .addValueEventListener(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
+                    if (isDialogShowing) return
+                    
                     for (invitationSnapshot in snapshot.children) {
                         val invitation = invitationSnapshot.getValue(Invitation::class.java)
                         if (invitation != null && invitation.status == "Pending") {
@@ -62,13 +65,16 @@ class DashboardTenantActivity : AppCompatActivity() {
     }
 
     private fun showInvitationDialog(invitation: Invitation) {
+        isDialogShowing = true
         AlertDialog.Builder(this)
             .setTitle("Tenant Invitation")
             .setMessage("Landlord ${invitation.landlordName} from ${invitation.propertyName} wants to add you as a tenant. Do you accept?")
             .setPositiveButton("Accept") { _, _ ->
+                isDialogShowing = false
                 acceptInvitation(invitation)
             }
             .setNegativeButton("Decline") { _, _ ->
+                isDialogShowing = false
                 declineInvitation(invitation)
             }
             .setCancelable(false)

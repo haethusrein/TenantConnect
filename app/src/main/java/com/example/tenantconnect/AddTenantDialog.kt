@@ -29,7 +29,7 @@ class AddTenantDialog : BottomSheetDialogFragment() {
         super.onViewCreated(view, savedInstanceState)
 
         binding.btnAddTenant.setOnClickListener {
-            val query = binding.etTenantSearch.text.toString().trim()
+            val query = binding.etTenantSearch.text.toString().trim().lowercase()
             if (query.isNotEmpty()) {
                 searchAndAddTenant(query)
             } else {

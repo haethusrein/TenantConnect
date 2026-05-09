@@ -115,6 +115,12 @@ class SignUpActivity : AppCompatActivity() {
             month,
             day,
         )
+        
+        // Restrict to adults only (18 years ago from today)
+        val adultCalendar = Calendar.getInstance()
+        adultCalendar.add(Calendar.YEAR, -18)
+        datePickerDialog.datePicker.maxDate = adultCalendar.timeInMillis
+
         datePickerDialog.show()
     }
 }

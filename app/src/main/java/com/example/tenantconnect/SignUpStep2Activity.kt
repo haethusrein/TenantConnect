@@ -36,7 +36,7 @@ class SignUpStep2Activity : AppCompatActivity() {
             // Pass data from step 1 (received via previous intent) and step 2
             intent.putExtras(getIntent().extras ?: Bundle())
             intent.putExtra("userName", binding.etUserName.text.toString())
-            intent.putExtra("email", binding.etEmail.text.toString())
+            intent.putExtra("email", binding.etEmail.text.toString().trim().lowercase())
             intent.putExtra("password", binding.etPassword.text.toString())
             intent.putExtra("role", binding.spinnerRole.selectedItem.toString())
             startActivity(intent)

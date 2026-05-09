@@ -24,12 +24,54 @@ class PaymentDetailsTenantActivity : AppCompatActivity() {
         binding.ivBack.setOnClickListener { finish() }
         
         binding.btnPay.setOnClickListener { 
-            Toast.makeText(this, "Payment Successful!", Toast.LENGTH_SHORT).show()
-            finish()
+            handlePayment()
         }
 
         setupMenu()
         setupBottomNavigation()
+    }
+
+    private fun handlePayment() {
+        val amountPaidStr = binding.etAmountToPay.text.toString().trim()
+        val totalBalanceStr = binding.tvTotalBalance.text.toString().replace("₱", "").trim()
+        
+        val amountPaid = amountPaidStr.toDoubleOrNull()
+        val totalBalance = totalBalanceStr.toDoubleOrNull() ?: 0.0
+
+        // 1. Validation
+        if (amountPaid == null || amountPaid <= 0.0) {
+            binding.etAmountToPay.error = "Please enter a valid amount greater than 0"
+            binding.etAmountToPay.requestFocus()
+            return
+        }
+
+        if (amountPaid > totalBalance) {
+            binding.etAmountToPay.error = "Amount cannot exceed total balance (₱$totalBalance)"
+            binding.etAmountToPay.requestFocus()
+            return
+        }
+
+        // 2. Prevent Double Clicks
+        binding.btnPay.isEnabled = false
+        // showLoading(true) // If you have a loading overlay
+
+        // 3. Logic Placeholder (Transaction implementation)
+        // For now, simulate success
+        Toast.makeText(this, "Payment Successful!", Toast.LENGTH_SHORT).show()
+        finish()
+
+        /* 
+        // Example logic for real Firebase implementation:
+        FirebaseManager.transactionsRef.child(newId).setValue(transaction)
+            .addOnSuccessListener {
+                Toast.makeText(this, "Payment Successful!", Toast.LENGTH_SHORT).show()
+                finish()
+            }
+            .addOnFailureListener {
+                binding.btnPay.isEnabled = true
+                Toast.makeText(this, "Payment Failed: ${it.message}", Toast.LENGTH_SHORT).show()
+            }
+        */
     }
 
     private fun setupMenu() {

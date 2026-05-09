@@ -172,7 +172,10 @@ class DashboardTenantActivity : AppCompatActivity() {
                 if (billing != null) {
                     binding.tvPaymentLabel.visibility = View.VISIBLE
                     binding.tvPaymentDueDate.visibility = View.VISIBLE
-                    binding.tvPaymentAmount.text = "₱${String.format(Locale.US, "%.2f", billing.totalAmount)}"
+                    
+                    val safeAmount = billing.totalAmount ?: 0.0
+                    binding.tvPaymentAmount.text = "₱${String.format(Locale.US, "%.2f", safeAmount)}"
+
                     binding.tvPaymentDueDate.text = "Due: ${billing.dueDate}"
                     binding.tvPaymentAmount.textSize = 24f
                     binding.tvPaymentAmount.setPadding(0, 0, 0, 0)

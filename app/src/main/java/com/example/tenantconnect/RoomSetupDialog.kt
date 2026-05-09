@@ -36,7 +36,12 @@ class RoomSetupDialog(private val invitation: Invitation) : BottomSheetDialogFra
                 return@setOnClickListener
             }
             
-            val rentAmount = rentAmountStr.toDoubleOrNull() ?: 0.0
+            val rentAmount = rentAmountStr.toDoubleOrNull()
+            if (rentAmount == null || rentAmount <= 0.0) {
+                binding.etMonthlyRent.error = "Please enter a valid amount greater than 0"
+                binding.etMonthlyRent.requestFocus()
+                return@setOnClickListener
+            }
 
             finalizeSetup(roomNumber, rentAmount)
         }

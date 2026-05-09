@@ -197,7 +197,7 @@ class DashboardLandlordActivity : AppCompatActivity() {
         }
 
         binding.bottomNav.navPayments.setOnClickListener {
-            Toast.makeText(this, "Payments management coming soon", Toast.LENGTH_SHORT).show()
+            startActivity(Intent(this, PaymentLandlordActivity::class.java))
         }
 
         binding.bottomNav.navProfile.setOnClickListener {

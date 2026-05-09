@@ -219,7 +219,7 @@ class ProfileTenantActivity : AppCompatActivity() {
         binding.bottomNav.navPayments.setOnClickListener {
             val isLandlord = currentUser?.role == "Landlord"
             if (isLandlord) {
-                Toast.makeText(this, "Payments coming soon", Toast.LENGTH_SHORT).show()
+                startActivity(Intent(this, PaymentLandlordActivity::class.java))
             } else {
                 startActivity(Intent(this, PaymentHistoryTenantActivity::class.java))
             }

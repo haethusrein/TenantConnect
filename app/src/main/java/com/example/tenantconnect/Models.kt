@@ -95,6 +95,7 @@ data class Announcement(
 @IgnoreExtraProperties
 data class Message(
     val messageId: String? = null,
+    val chatId: String? = null, // Added for targeted queries
     val senderId: String? = null,
     val receiverId: String? = null,
     val messageText: String? = null,

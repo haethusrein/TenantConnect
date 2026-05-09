@@ -11,20 +11,19 @@ import android.widget.ListPopupWindow
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.tenantconnect.databinding.ActivityInboxTenantBinding
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
 
-import android.view.LayoutInflater
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-
 class InboxTenantActivity : AppCompatActivity() {
     private lateinit var binding: ActivityInboxTenantBinding
+    private lateinit var adapter: MessageAdapter
     private var targetUserId: String? = null
     private var isLandlordMode: Boolean = false
+    private var chatId: String? = null
+    private var messagesListener: ValueEventListener? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,124 +40,120 @@ class InboxTenantActivity : AppCompatActivity() {
     private fun determineModeAndPartner() {
         val currentUserId = FirebaseManager.auth.currentUser?.uid ?: return
         
+        // Targeted Routing: Expect a specific user ID to chat with passed via Intent
+        targetUserId = intent.getStringExtra("TARGET_USER_ID")
+
         FirebaseManager.usersRef.child(currentUserId).get().addOnSuccessListener { snapshot ->
+            if (isFinishing || isDestroyed) return@addOnSuccessListener
+            
             val role = snapshot.child("role").getValue(String::class.java)
             isLandlordMode = (role == "Landlord")
             
             if (isLandlordMode) {
-                // For landlord, we need a list of tenants to talk to. 
-                // For now, let's assume we pick the first tenant linked to this landlord.
-                FirebaseManager.usersRef.orderByChild("landlordId").equalTo(currentUserId).limitToFirst(1).get()
-                    .addOnSuccessListener { tenantSnapshot ->
-                        targetUserId = tenantSnapshot.children.firstOrNull()?.key
-                        if (targetUserId != null) {
-                            setupMessaging()
-                        } else {
-                            Toast.makeText(this, "No tenants found to message.", Toast.LENGTH_SHORT).show()
-                        }
-                    }
+                if (targetUserId == null) {
+                    Toast.makeText(this, "No chat partner selected", Toast.LENGTH_SHORT).show()
+                    finish()
+                    return@addOnSuccessListener
+                }
             } else {
-                // For tenant, target is their landlord
-                targetUserId = snapshot.child("landlordId").getValue(String::class.java)
-                if (targetUserId != null) {
-                    setupMessaging()
-                } else {
+                // For tenant, if TARGET_USER_ID is missing, fall back to their assigned landlordId
+                if (targetUserId == null) {
+                    targetUserId = snapshot.child("landlordId").getValue(String::class.java)
+                }
+                
+                if (targetUserId == null) {
                     Toast.makeText(this, "No landlord connected yet.", Toast.LENGTH_SHORT).show()
+                    finish()
+                    return@addOnSuccessListener
                 }
             }
+
+            // Create unique chatId by sorting IDs alphabetically to ensure consistency for both users
+            val ids = listOf(currentUserId, targetUserId!!).sorted()
+            chatId = "${ids[0]}_${ids[1]}"
+            
+            setupRecyclerView(currentUserId)
+            setupMessaging()
         }
+    }
+
+    private fun setupRecyclerView(currentUserId: String) {
+        adapter = MessageAdapter(currentUserId, isLandlordMode)
+        binding.rvMessages.layoutManager = LinearLayoutManager(this).apply {
+            stackFromEnd = true // Messages start from the bottom
+        }
+        binding.rvMessages.adapter = adapter
     }
 
     private fun setupMessaging() {
         val currentUserId = FirebaseManager.auth.currentUser?.uid ?: return
-        val partnerId = targetUserId ?: return
+        val currentChatId = chatId ?: return
         
-        // Listen for messages in real-time
-        FirebaseManager.messagesRef.addValueEventListener(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                if (isFinishing || isDestroyed) return
-                
-                binding.llMessagesContainer.removeAllViews()
-                val messages = mutableListOf<Message>()
-                for (child in snapshot.children) {
-                    val message = child.getValue(Message::class.java)
-                    if (message != null) {
-                        // Filter for conversation between this user and their partner
-                        if ((message.senderId == currentUserId && message.receiverId == partnerId) ||
-                            (message.senderId == partnerId && message.receiverId == currentUserId)) {
-                            messages.add(message)
-                        }
+        // Targeted Query: Attach listener strictly to the specific chatId node
+        messagesListener = FirebaseManager.messagesRef.child(currentChatId)
+            .addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (isFinishing || isDestroyed) return
+                    
+                    val messagesList = mutableListOf<Message>()
+                    for (child in snapshot.children) {
+                        child.getValue(Message::class.java)?.let { messagesList.add(it) }
+                    }
+                    
+                    // Display messages and scroll to the bottom
+                    messagesList.sortBy { it.timestamp }
+                    adapter.submitList(messagesList)
+                    
+                    if (messagesList.isNotEmpty()) {
+                        binding.rvMessages.smoothScrollToPosition(messagesList.size - 1)
                     }
                 }
-                
-                // Sort by timestamp
-                messages.sortBy { it.timestamp }
-                
-                for (msg in messages) {
-                    addMessageBubble(msg, currentUserId)
-                }
-                
-                // Scroll to bottom
-                binding.scrollView.post {
-                    binding.scrollView.fullScroll(View.FOCUS_DOWN)
-                }
-            }
 
-            override fun onCancelled(error: DatabaseError) {
-                Toast.makeText(this@InboxTenantActivity, "Error: ${error.message}", Toast.LENGTH_SHORT).show()
-            }
-        })
+                override fun onCancelled(error: DatabaseError) {
+                    Toast.makeText(this@InboxTenantActivity, "Error: ${error.message}", Toast.LENGTH_SHORT).show()
+                }
+            })
 
         binding.btnSend.setOnClickListener {
             val text = binding.etMessage.text.toString().trim()
             if (text.isNotEmpty()) {
-                if (targetUserId != null) {
-                    sendMessage(currentUserId, text)
-                }
+                sendMessage(currentUserId, text)
             }
         }
     }
 
-    private fun addMessageBubble(message: Message, currentUserId: String) {
-        val isMe = message.senderId == currentUserId
-        val layoutRes = if (isMe) R.layout.item_message_right else R.layout.item_message_left
-        val view = LayoutInflater.from(this).inflate(layoutRes, binding.llMessagesContainer, false)
-        
-        val tvMessage = view.findViewById<TextView>(R.id.tv_message)
-        val tvTime = view.findViewById<TextView>(R.id.tv_time)
-        val tvSender = if (!isMe) view.findViewById<TextView>(R.id.tv_sender) else null
-
-        tvMessage.text = message.messageText
-        
-        val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
-        tvTime.text = sdf.format(Date(message.timestamp ?: 0L))
-
-        if (!isMe && tvSender != null) {
-            // Optional: fetch sender name for better UI
-            tvSender.text = if (isLandlordMode) "Tenant" else "Landlord"
-        }
-
-        binding.llMessagesContainer.addView(view)
-    }
-
     private fun sendMessage(senderId: String, text: String) {
+        val currentChatId = chatId ?: return
         val partnerId = targetUserId ?: return
-        val messageId = FirebaseManager.messagesRef.push().key ?: return
+        // Messages are now stored under their specific chatId node
+        val messageId = FirebaseManager.messagesRef.child(currentChatId).push().key ?: return
+        
         val message = Message(
             messageId = messageId,
+            chatId = currentChatId,
             senderId = senderId,
             receiverId = partnerId,
             messageText = text,
             timestamp = System.currentTimeMillis()
         )
 
-        FirebaseManager.messagesRef.child(messageId).setValue(message)
+        FirebaseManager.messagesRef.child(currentChatId).child(messageId).setValue(message)
             .addOnSuccessListener {
                 binding.etMessage.setText("")
             }
             .addOnFailureListener {
                 Toast.makeText(this, "Failed to send: ${it.message}", Toast.LENGTH_SHORT).show()
             }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Memory Leak Fix: Remove listener when activity is destroyed
+        chatId?.let { id ->
+            messagesListener?.let { 
+                FirebaseManager.messagesRef.child(id).removeEventListener(it) 
+            }
+        }
     }
 
     private fun setupMenu() {
@@ -184,7 +179,9 @@ class InboxTenantActivity : AppCompatActivity() {
                     "Settings" -> startActivity(Intent(this, SettingsTenantActivity::class.java))
                     "Log out" -> {
                         FirebaseManager.auth.signOut()
-                        startActivity(Intent(this, LoginActivity::class.java))
+                        val intent = Intent(this, LoginActivity::class.java)
+                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        startActivity(intent)
                         finishAffinity()
                     }
                 }
@@ -196,16 +193,27 @@ class InboxTenantActivity : AppCompatActivity() {
 
     private fun setupBottomNavigation() {
         binding.bottomNav.navHome.setOnClickListener {
-            val intent = Intent(this, DashboardTenantActivity::class.java)
+            val intent = if (isLandlordMode) {
+                Intent(this, DashboardLandlordActivity::class.java)
+            } else {
+                Intent(this, DashboardTenantActivity::class.java)
+            }
             intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             startActivity(intent)
         }
+        
         binding.bottomNav.navNotifications.setOnClickListener {
-            // Already here
+            // Already here (Inbox)
         }
+        
         binding.bottomNav.navPayments.setOnClickListener {
-            startActivity(Intent(this, PaymentTenantActivity::class.java))
+            if (isLandlordMode) {
+                Toast.makeText(this, "Payments management coming soon", Toast.LENGTH_SHORT).show()
+            } else {
+                startActivity(Intent(this, PaymentTenantActivity::class.java))
+            }
         }
+
         binding.bottomNav.navProfile.setOnClickListener {
             startActivity(Intent(this, ProfileTenantActivity::class.java))
         }

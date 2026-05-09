@@ -29,7 +29,9 @@ data class Property(
     val landlordId: String? = null,
     val propertyName: String? = null,
     val address: String? = null,
-    val totalRooms: Int? = 0
+    val totalRooms: Int? = 0,
+    val amenities: List<String>? = null,
+    val coverPhotoUrl: String? = null
 )
 
 @IgnoreExtraProperties
@@ -38,7 +40,9 @@ data class Room(
     val propertyId: String? = null,
     val roomNumber: String? = null,
     val baseRate: Double? = 0.0,
-    val status: String? = "Vacant"
+    val status: String? = "Vacant",
+    val roomType: String? = null,
+    val assets: List<String>? = null
 )
 
 @IgnoreExtraProperties
@@ -107,4 +111,41 @@ data class Invitation(
     val propertyName: String? = null,
     val status: String? = "Pending", // Pending, Accepted, Declined
     val timestamp: Long? = System.currentTimeMillis()
+)
+
+@IgnoreExtraProperties
+data class MaintenanceRequest(
+    val ticketId: String? = null,
+    val propertyId: String? = null,
+    val roomId: String? = null,
+    val tenantId: String? = null,
+    val title: String? = null,
+    val description: String? = null,
+    val urgency: String? = "Medium", // Low, Medium, High
+    val status: String? = "Open", // Open, InProgress, Resolved
+    val photoUrl: String? = null,
+    val timestamp: Long? = System.currentTimeMillis()
+)
+
+@IgnoreExtraProperties
+data class PaymentTransaction(
+    val transactionId: String? = null,
+    val billingId: String? = null,
+    val tenantId: String? = null,
+    val amountPaid: Double? = 0.0,
+    val paymentMethod: String? = null,
+    val referenceNumber: String? = null,
+    val proofOfPaymentUrl: String? = null,
+    val paymentDate: Long? = System.currentTimeMillis(),
+    val verificationStatus: String? = "Pending" // Pending, Verified, Rejected
+)
+
+@IgnoreExtraProperties
+data class Document(
+    val documentId: String? = null,
+    val userId: String? = null,
+    val contractId: String? = null,
+    val documentType: String? = null, // e.g., Lease Agreement, ID
+    val fileUrl: String? = null,
+    val uploadDate: Long? = System.currentTimeMillis()
 )

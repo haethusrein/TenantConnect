@@ -16,4 +16,7 @@ object FirebaseManager {
     val announcementsRef get() = database.getReference("announcements")
     val messagesRef get() = database.getReference("messages")
     val invitationsRef get() = database.getReference("invitations")
+    val maintenanceRef get() = database.getReference("maintenance_requests")
+    val transactionsRef get() = database.getReference("payment_transactions")
+    val documentsRef get() = database.getReference("documents")
 }

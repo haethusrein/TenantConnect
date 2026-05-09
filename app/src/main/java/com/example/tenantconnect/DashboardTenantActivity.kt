@@ -16,6 +16,7 @@ import com.example.tenantconnect.databinding.ActivityDashboardTenantBinding
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
+import java.util.Locale
 
 class DashboardTenantActivity : AppCompatActivity() {
     private lateinit var binding: ActivityDashboardTenantBinding
@@ -114,23 +115,83 @@ class DashboardTenantActivity : AppCompatActivity() {
 
     private fun loadUserData(userId: String) {
         FirebaseManager.usersRef.child(userId).get().addOnSuccessListener { snapshot ->
+            if (isFinishing || isDestroyed) return@addOnSuccessListener
+            
             val user = snapshot.getValue(User::class.java)
             if (user != null) {
                 binding.tvGreeting.text = "Hello, ${user.firstName}!"
-                checkAccommodationStatus(userId)
+                fetchTenantDetails(userId)
             }
         }.addOnFailureListener {
             Toast.makeText(this, "Error loading data: ${it.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun checkAccommodationStatus(userId: String) {
-        // Query contracts to see if this tenant has an active one
-        FirebaseManager.contractsRef.orderByChild("tenantId").equalTo(userId).get().addOnSuccessListener { snapshot ->
-            if (!snapshot.exists()) {
-                showNoAccommodationState()
+    private fun fetchTenantDetails(userId: String) {
+        // 1. Get Active Contract
+        FirebaseManager.contractsRef.orderByChild("tenantId").equalTo(userId).get()
+            .addOnSuccessListener { snapshot ->
+                if (isFinishing || isDestroyed) return@addOnSuccessListener
+                
+                val contract = snapshot.children.firstOrNull { 
+                    it.child("status").getValue(String::class.java) == "Active" 
+                }?.getValue(Contract::class.java)
+
+                if (contract != null) {
+                    displayAccommodation(contract.propertyId)
+                    displayLatestPayment(contract.contractId)
+                    displayRecentAnnouncement(contract.propertyId)
+                } else {
+                    showNoAccommodationState()
+                }
+            }
+    }
+
+    private fun displayAccommodation(propertyId: String?) {
+        if (propertyId == null) return
+        FirebaseManager.propertiesRef.child(propertyId).get().addOnSuccessListener { snapshot ->
+            if (isFinishing || isDestroyed) return@addOnSuccessListener
+            val property = snapshot.getValue(Property::class.java)
+            if (property != null) {
+                binding.tvAccommodationLabel.visibility = View.VISIBLE
+                binding.tvAccommodationAddress.visibility = View.VISIBLE
+                binding.tvAccommodation.text = property.propertyName
+                binding.tvAccommodationAddress.text = property.address
             }
         }
+    }
+
+    private fun displayLatestPayment(contractId: String?) {
+        if (contractId == null) return
+        FirebaseManager.billingsRef.orderByChild("contractId").equalTo(contractId).limitToLast(1).get()
+            .addOnSuccessListener { snapshot ->
+                if (isFinishing || isDestroyed) return@addOnSuccessListener
+                val billing = snapshot.children.firstOrNull()?.getValue(Billing::class.java)
+                if (billing != null) {
+                    binding.tvPaymentLabel.visibility = View.VISIBLE
+                    binding.tvPaymentDueDate.visibility = View.VISIBLE
+                    binding.tvPaymentAmount.text = "₱${String.format(Locale.US, "%.2f", billing.totalAmount)}"
+                    binding.tvPaymentDueDate.text = "Due: ${billing.dueDate}"
+                    binding.tvPaymentAmount.textSize = 24f
+                    binding.tvPaymentAmount.setPadding(0, 0, 0, 0)
+                } else {
+                    binding.tvPaymentAmount.text = "No pending bills"
+                }
+            }
+    }
+
+    private fun displayRecentAnnouncement(propertyId: String?) {
+        if (propertyId == null) return
+        FirebaseManager.announcementsRef.orderByChild("propertyId").equalTo(propertyId).limitToLast(1).get()
+            .addOnSuccessListener { snapshot ->
+                if (isFinishing || isDestroyed) return@addOnSuccessListener
+                val announcement = snapshot.children.firstOrNull()?.getValue(Announcement::class.java)
+                if (announcement != null) {
+                    binding.tvAnnouncementsContent.text = announcement.title
+                } else {
+                    binding.tvAnnouncementsContent.text = "No announcements yet"
+                }
+            }
     }
 
     private fun showNoAccommodationState() {

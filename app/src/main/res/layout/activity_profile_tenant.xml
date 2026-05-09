@@ -211,6 +211,7 @@
                     android:orientation="vertical"
                     android:padding="20dp">
                     <TextView
+                        android:id="@+id/tv_property_title"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Lease Information"
@@ -222,7 +223,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="10dp"
-                        android:text="Residence: NewBH., Room 107"
+                        android:text="Residence: "
                         android:textColor="@color/white"
                         android:textSize="12sp"
                         android:textStyle="bold" />
@@ -231,7 +232,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="5dp"
-                        android:text="Address: P1, Dologon, Maramag"
+                        android:text="Address: "
                         android:textColor="@color/white"
                         android:textSize="12sp"
                         android:textStyle="bold" />
@@ -240,7 +241,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="5dp"
-                        android:text="Contract: Yearly renewal"
+                        android:text="Contract: "
                         android:textColor="@color/white"
                         android:textSize="12sp"
                         android:textStyle="bold" />
@@ -249,10 +250,20 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="5dp"
-                        android:text="Base rate: P8,000.00"
+                        android:text="Base rate: "
                         android:textColor="@color/white"
                         android:textSize="12sp"
                         android:textStyle="bold" />
+                    <TextView
+                        android:id="@+id/tv_extra_info"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp"
+                        android:text="Property Details: "
+                        android:textColor="@color/white"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 

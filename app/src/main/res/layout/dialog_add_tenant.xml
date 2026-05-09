@@ -30,9 +30,18 @@
         android:background="@drawable/bg_input_field"
         android:backgroundTint="#F2F2F2"
         android:hint="Search name/email..."
-        android:inputType="text"
+        android:inputType="textEmailAddress"
         android:paddingHorizontal="15dp"
         android:textColor="@color/black" />
+
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:layout_marginTop="10dp"
+        android:layout_gravity="center"
+        android:indeterminateTint="@color/navy"
+        android:visibility="gone" />
 
     <TextView
         android:id="@+id/tvSearchResult"

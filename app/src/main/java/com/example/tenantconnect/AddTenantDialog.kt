@@ -9,6 +9,8 @@ import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
 import com.example.tenantconnect.databinding.DialogAddTenantBinding
 
+import androidx.core.view.isVisible
+
 class AddTenantDialog : DialogFragment() {
     private var _binding: DialogAddTenantBinding? = null
     private val binding get() = _binding!!
@@ -23,6 +25,8 @@ class AddTenantDialog : DialogFragment() {
             val query = binding.etTenantSearch.text.toString().trim()
             if (query.isNotEmpty()) {
                 searchAndAddTenant(query)
+            } else {
+                Toast.makeText(context, "Please enter an email address", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -33,31 +37,56 @@ class AddTenantDialog : DialogFragment() {
         return builder.create()
     }
 
+    private fun showLoading(isLoading: Boolean) {
+        binding.progressBar.isVisible = isLoading
+        binding.btnAddTenant.isEnabled = !isLoading
+    }
+
     private fun searchAndAddTenant(query: String) {
+        showLoading(true)
+        binding.tvSearchResult.isVisible = false
         // Search by email
         FirebaseManager.usersRef.orderByChild("email").equalTo(query).get()
             .addOnSuccessListener { snapshot ->
+                showLoading(false)
                 if (snapshot.exists()) {
                     val tenantSnapshot = snapshot.children.first()
                     val tenant = tenantSnapshot.getValue(User::class.java)
                     
                     if (tenant != null && tenant.role == "Tenant") {
+                        binding.tvSearchResult.text = "Found: ${tenant.firstName} ${tenant.lastName}"
+                        binding.tvSearchResult.setTextColor(binding.root.context.getColor(R.color.navy))
+                        binding.tvSearchResult.isVisible = true
+
                         if (tenant.landlordId == null) {
-                            sendInvitation(tenantSnapshot.key!!, tenant)
+                            binding.btnAddTenant.setOnClickListener {
+                                sendInvitation(tenantSnapshot.key!!, tenant)
+                            }
+                            binding.btnAddTenant.text = "Send Invitation"
                         } else {
-                            Toast.makeText(context, "Tenant is already registered to another landlord.", Toast.LENGTH_LONG).show()
+                            binding.tvSearchResult.text = "Tenant already registered elsewhere."
+                            binding.tvSearchResult.setTextColor(binding.root.context.getColor(android.R.color.holo_red_dark))
+                            binding.btnAddTenant.isEnabled = false
                         }
                     } else {
-                        Toast.makeText(context, "User found is not a tenant.", Toast.LENGTH_SHORT).show()
+                        binding.tvSearchResult.text = "User is not a tenant."
+                        binding.tvSearchResult.isVisible = true
                     }
                 } else {
-                    Toast.makeText(context, "Tenant not found.", Toast.LENGTH_SHORT).show()
+                    binding.tvSearchResult.text = "No user found with that email."
+                    binding.tvSearchResult.isVisible = true
                 }
+            }
+            .addOnFailureListener {
+                showLoading(false)
+                Toast.makeText(context, "Search failed: ${it.message}", Toast.LENGTH_SHORT).show()
             }
     }
 
     private fun sendInvitation(tenantUid: String, tenant: User) {
         val currentLandlordId = FirebaseManager.auth.currentUser?.uid ?: return
+        showLoading(true)
+        binding.btnAddTenant.isEnabled = false
         
         // Fetch landlord and property info to include in the invitation
         FirebaseManager.usersRef.child(currentLandlordId).get().addOnSuccessListener { userSnapshot ->
@@ -66,21 +95,34 @@ class AddTenantDialog : DialogFragment() {
             FirebaseManager.propertiesRef.orderByChild("landlordId").equalTo(currentLandlordId).get().addOnSuccessListener { propSnapshot ->
                 val property = propSnapshot.children.firstOrNull()?.getValue(Property::class.java)
                 
+                if (property == null) {
+                    showLoading(false)
+                    Toast.makeText(context, "Please complete your property setup first.", Toast.LENGTH_LONG).show()
+                    return@addOnSuccessListener
+                }
+
                 val invitationId = FirebaseManager.invitationsRef.push().key ?: return@addOnSuccessListener
                 val invitation = Invitation(
                     invitationId = invitationId,
                     tenantId = tenantUid,
                     landlordId = currentLandlordId,
                     landlordName = "${landlord?.firstName} ${landlord?.lastName}",
-                    propertyName = property?.propertyName ?: "Unknown Property"
+                    propertyName = property.propertyName ?: "Your Property"
                 )
 
                 FirebaseManager.invitationsRef.child(invitationId).setValue(invitation)
                     .addOnSuccessListener {
+                        showLoading(false)
+                        binding.tvSearchResult.text = "Invitation sent successfully!"
+                        binding.tvSearchResult.setTextColor(binding.root.context.getColor(android.R.color.holo_green_dark))
                         Toast.makeText(context, "Invitation sent to ${tenant.firstName}!", Toast.LENGTH_LONG).show()
-                        dismiss()
+                        
+                        // Briefly show success before dismissing
+                        binding.root.postDelayed({ dismiss() }, 1500)
                     }
                     .addOnFailureListener {
+                        showLoading(false)
+                        binding.btnAddTenant.isEnabled = true
                         Toast.makeText(context, "Failed to send invitation: ${it.message}", Toast.LENGTH_SHORT).show()
                     }
             }

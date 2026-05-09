@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "872821442617",
+    "firebase_url": "https://tenantconnect-5838a3fe-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "tenantconnect-5838a3fe",
+    "storage_bucket": "tenantconnect-5838a3fe.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:872821442617:android:52e006d93410875cf625e8",
+        "android_client_info": {
+          "package_name": "com.example.tenantconnect"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDEX8yTe45DNlNq80qn5aZSqSZ0M9JMTko"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

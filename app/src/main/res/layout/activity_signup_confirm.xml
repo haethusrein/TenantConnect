@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white">
+
+    <!-- Top Bar -->
+    <RelativeLayout
+        android:id="@+id/top_bar"
+        android:layout_width="match_parent"
+        android:layout_height="80dp"
+        android:background="@color/navy"
+        android:paddingHorizontal="20dp"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:text="TenantConnect"
+            android:textColor="#F2E9E4"
+            android:textSize="32sp"
+            android:textStyle="bold" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btn_top_login"
+            android:layout_width="wrap_content"
+            android:layout_height="35dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:background="@drawable/bg_status_badge"
+            android:backgroundTint="#9A8C98"
+            android:paddingHorizontal="15dp"
+            android:text="LOG IN"
+            android:textColor="@color/white"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </RelativeLayout>
+
+    <!-- Sign Up Confirm Card -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginHorizontal="35dp"
+        android:layout_marginTop="60dp"
+        android:layout_marginBottom="60dp"
+        android:background="@drawable/bg_card_outline"
+        android:orientation="vertical"
+        android:padding="30dp"
+        app:layout_constraintBottom_toTopOf="@id/bottom_nav"
+        app:layout_constraintTop_toBottomOf="@id/top_bar">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:text="SIGN UP"
+            android:textColor="@color/slate"
+            android:textSize="48sp"
+            android:textStyle="bold" />
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginTop="10dp"
+            android:padding="5dp"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Name:"
+                    android:textColor="@color/slate"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/tvConfirmName"
+                    android:layout_width="match_parent"
+                    android:layout_height="35dp"
+                    android:layout_marginTop="5dp"
+                    android:background="@drawable/bg_input_field"
+                    android:paddingHorizontal="10dp"
+                    android:gravity="center_vertical"
+                    android:textColor="@color/black" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="Birth Date:"
+                    android:textColor="@color/slate"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/tvConfirmBirthDate"
+                    android:layout_width="match_parent"
+                    android:layout_height="35dp"
+                    android:layout_marginTop="5dp"
+                    android:background="@drawable/bg_input_field"
+                    android:paddingHorizontal="10dp"
+                    android:gravity="center_vertical"
+                    android:textColor="@color/black" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="Gender:"
+                    android:textColor="@color/slate"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/tvConfirmGender"
+                    android:layout_width="match_parent"
+                    android:layout_height="35dp"
+                    android:layout_marginTop="5dp"
+                    android:background="@drawable/bg_input_field"
+                    android:paddingHorizontal="10dp"
+                    android:gravity="center_vertical"
+                    android:textColor="@color/black" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="Email:"
+                    android:textColor="@color/slate"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/tvConfirmEmail"
+                    android:layout_width="match_parent"
+                    android:layout_height="35dp"
+                    android:layout_marginTop="5dp"
+                    android:background="@drawable/bg_input_field"
+                    android:paddingHorizontal="10dp"
+                    android:gravity="center_vertical"
+                    android:textColor="@color/black" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="Password:"
+                    android:textColor="@color/slate"
+                    android:textStyle="bold" />
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="35dp"
+                    android:layout_marginTop="5dp"
+                    android:background="@drawable/bg_input_field">
+
+                    <TextView
+                        android:id="@+id/tvConfirmPassword"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:layout_toStartOf="@id/ivToggleConfirmPassword"
+                        android:paddingHorizontal="10dp"
+                        android:gravity="center_vertical"
+                        android:textColor="@color/black" />
+
+                    <ImageView
+                        android:id="@+id/ivToggleConfirmPassword"
+                        android:layout_width="35dp"
+                        android:layout_height="match_parent"
+                        android:layout_alignParentEnd="true"
+                        android:padding="8dp"
+                        android:src="@android:drawable/ic_menu_view"
+                        android:contentDescription="Toggle Password Visibility"
+                        app:tint="@color/slate" />
+                </RelativeLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="Status:"
+                    android:textColor="@color/slate"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/tvConfirmStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="35dp"
+                    android:layout_marginTop="5dp"
+                    android:background="@drawable/bg_input_field"
+                    android:paddingHorizontal="10dp"
+                    android:gravity="center_vertical"
+                    android:textColor="@color/black" />
+
+            </LinearLayout>
+        </ScrollView>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="15dp"
+            android:orientation="horizontal"
+            android:gravity="end">
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnEdit"
+                android:layout_width="100dp"
+                android:layout_height="35dp"
+                android:layout_marginEnd="15dp"
+                android:background="@drawable/bg_button"
+                android:backgroundTint="@color/navy"
+                android:text="Edit"
+                android:textColor="@color/white"
+                android:textAllCaps="false"
+                android:textStyle="bold" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnFinalConfirm"
+                android:layout_width="120dp"
+                android:layout_height="35dp"
+                android:background="@drawable/bg_button"
+                android:backgroundTint="@color/navy"
+                android:text="Confirm"
+                android:textColor="@color/white"
+                android:textAllCaps="false"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Bottom Bar -->
+    <View
+        android:id="@+id/bottom_nav"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:background="@color/navy"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+    <include layout="@layout/partial_loading_overlay" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

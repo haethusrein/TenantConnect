@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white">
+
+    <!-- Top Bar -->
+    <RelativeLayout
+        android:id="@+id/top_bar"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:background="@color/navy"
+        android:paddingHorizontal="20dp"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:text="Dashboard"
+            android:textColor="@color/white"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:id="@+id/iv_menu"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:src="@drawable/ic_menu"
+            android:contentDescription="Menu" />
+    </RelativeLayout>
+
+    <!-- Sub Header (Payment Breakdown) -->
+    <LinearLayout
+        android:id="@+id/sub_header"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:background="@drawable/bg_button"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="20dp"
+        app:layout_constraintTop_toBottomOf="@id/top_bar">
+
+        <ImageView
+            android:id="@+id/iv_back"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:background="@drawable/bg_status_badge"
+            android:backgroundTint="#9A8C98"
+            android:padding="5dp"
+            android:src="@drawable/ic_back" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="15dp"
+            android:text="Payment"
+            android:textColor="@color/white"
+            android:textSize="28sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toTopOf="@id/bottom_nav"
+        app:layout_constraintTop_toBottomOf="@id/sub_header">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <!-- Breakdown Card (Mockup 2) -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardBackgroundColor="@color/card_bg"
+                app:cardCornerRadius="25dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Dues"
+                        android:textColor="@color/white"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Current Billing"
+                        android:textColor="@color/white"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="P8,908.66"
+                        android:textColor="@color/white"
+                        android:textSize="48sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Due in: 05/02/2026"
+                        android:textColor="@color/white"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="20dp"
+                        android:text="Summarised Billing Breakdown"
+                        android:textColor="@color/white"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <GridLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:columnCount="2">
+
+                        <TextView android:text="Recipient:" android:textColor="@color/white" android:textSize="12sp" />
+                        <TextView android:text="Charles Asher Dimakuta" android:textColor="@color/white" android:textSize="12sp" android:layout_gravity="end" />
+
+                        <TextView android:text="Unit:" android:textColor="@color/white" android:textSize="12sp" />
+                        <TextView android:text="Room 107" android:textColor="@color/white" android:textSize="12sp" android:layout_gravity="end" />
+
+                        <TextView android:text="Owner:" android:textColor="@color/white" android:textSize="12sp" />
+                        <TextView android:text="John Cruz" android:textColor="@color/white" android:textSize="12sp" android:layout_gravity="end" />
+
+                        <View android:layout_width="match_parent" android:layout_height="10dp" android:layout_columnSpan="2" />
+
+                        <TextView android:text="Rental:" android:textColor="@color/white" android:textSize="12sp" />
+                        <TextView android:text="P8,000.00" android:textColor="@color/white" android:textSize="12sp" android:layout_gravity="end" />
+
+                        <View android:layout_width="match_parent" android:layout_height="10dp" android:layout_columnSpan="2" />
+
+                        <TextView android:text="Water Bill" android:textColor="@color/white" android:textSize="12sp" android:textStyle="bold" />
+                        <View android:layout_width="0dp" android:layout_height="0dp" />
+
+                        <TextView android:text="Usage:" android:textColor="@color/white" android:textSize="12sp" android:layout_marginStart="10dp" />
+                        <TextView android:text="11/m^3" android:textColor="@color/white" android:textSize="12sp" android:layout_gravity="end" />
+
+                        <TextView android:text="Amount Due:" android:textColor="@color/white" android:textSize="12sp" android:layout_marginStart="10dp" />
+                        <TextView android:text="P60.00" android:textColor="@color/white" android:textSize="12sp" android:layout_gravity="end" />
+
+                        <View android:layout_width="match_parent" android:layout_height="10dp" android:layout_columnSpan="2" />
+
+                        <TextView android:text="Electric Bill" android:textColor="@color/white" android:textSize="12sp" android:textStyle="bold" />
+                        <View android:layout_width="0dp" android:layout_height="0dp" />
+
+                        <TextView android:text="Usage:" android:textColor="@color/white" android:textSize="12sp" android:layout_marginStart="10dp" />
+                        <TextView android:text="28.1KWh" android:textColor="@color/white" android:textSize="12sp" android:layout_gravity="end" />
+
+                        <TextView android:text="Amount Due:" android:textColor="@color/white" android:textSize="12sp" android:layout_marginStart="10dp" />
+                        <TextView android:text="P389.19" android:textColor="@color/white" android:textSize="12sp" android:layout_gravity="end" />
+
+                        <View android:layout_width="match_parent" android:layout_height="10dp" android:layout_columnSpan="2" />
+
+                        <TextView android:text="Wi-fi Arrears" android:textColor="@color/white" android:textSize="12sp" android:textStyle="bold" />
+                        <TextView android:text="P400.00" android:textColor="@color/white" android:textSize="12sp" android:layout_gravity="end" />
+
+                        <View android:layout_width="match_parent" android:layout_height="20dp" android:layout_columnSpan="2" />
+
+                        <TextView android:text="Total:" android:textColor="@color/white" android:textSize="14sp" android:textStyle="bold" />
+                        <TextView android:text="P8,908.66" android:textColor="@color/white" android:textSize="14sp" android:textStyle="bold" android:layout_gravity="end" />
+
+                    </GridLayout>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Payment Details (Mini mockup inside image 2) -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                app:cardBackgroundColor="@color/card_bg"
+                app:cardCornerRadius="25dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Payment Details"
+                        android:textColor="@color/white"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <RelativeLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="15dp">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Payment Method:"
+                            android:textColor="@color/white"
+                            android:textSize="12sp" />
+                        <View
+                            android:layout_width="100dp"
+                            android:layout_height="20dp"
+                            android:layout_alignParentEnd="true"
+                            android:background="@drawable/bg_status_badge"
+                            android:backgroundTint="@color/white" />
+                    </RelativeLayout>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="To Pay: P8,908.66"
+                        android:textColor="@color/white"
+                        android:textSize="12sp" />
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/btn_pay_final"
+                        android:layout_width="120dp"
+                        android:layout_height="35dp"
+                        android:layout_gravity="end"
+                        android:layout_marginTop="10dp"
+                        android:background="@drawable/bg_status_badge"
+                        android:backgroundTint="#9A8C98"
+                        android:text="Pay"
+                        android:textColor="@color/white"
+                        android:textSize="12sp"
+                        android:textAllCaps="false" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+        </LinearLayout>
+    </ScrollView>
+
+    <include
+        android:id="@+id/bottom_nav"
+        layout="@layout/partial_bottom_nav"
+        android:layout_width="match_parent"
+        android:layout_height="70dp"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

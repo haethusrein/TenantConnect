@@ -5,7 +5,6 @@ import com.google.firebase.database.FirebaseDatabase
 
 object FirebaseManager {
     val auth: FirebaseAuth get() = FirebaseAuth.getInstance()
-    // Explicitly providing the correct database URL from your Firebase Console
     val database: FirebaseDatabase get() = FirebaseDatabase.getInstance("https://tenantconnect-5838a3fe-default-rtdb.asia-southeast1.firebasedatabase.app")
     
     val usersRef get() = database.getReference("users")

@@ -33,7 +33,7 @@
             android:contentDescription="Menu" />
     </RelativeLayout>
 
-    <!-- Sub Header (Pill Box) -->
+    <!-- Sub Header (Inbox) -->
     <LinearLayout
         android:id="@+id/sub_header"
         android:layout_width="0dp"
@@ -59,32 +59,17 @@
             android:contentDescription="Back" />
 
         <TextView
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
             android:layout_marginStart="15dp"
-            android:text="Tenants"
+            android:text="Inbox"
             android:textColor="@color/white"
             android:textSize="28sp"
             android:textStyle="bold" />
-
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btn_manage_tenants_action"
-            android:layout_width="wrap_content"
-            android:layout_height="35dp"
-            android:layout_marginStart="10dp"
-            android:background="@drawable/bg_status_badge"
-            android:backgroundTint="#9A8C98"
-            android:paddingHorizontal="15dp"
-            android:text="Add Tenant"
-            android:textColor="@color/white"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:textAllCaps="false" />
     </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rv_tenants"
+        android:id="@+id/rv_chats"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:padding="20dp"

@@ -1,35 +1,35 @@
 package com.example.tenantconnect
 
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.tenantconnect.databinding.ItemTenantBinding
 
-class TenantAdapter(
+class TenantChatAdapter(
     private var tenants: List<User>,
-    private val onEditClick: (User) -> Unit,
-    private val onDeleteClick: (User) -> Unit
-) : RecyclerView.Adapter<TenantAdapter.TenantViewHolder>() {
+    private val onChatClick: (User) -> Unit
+) : RecyclerView.Adapter<TenantChatAdapter.ChatViewHolder>() {
 
-    class TenantViewHolder(val binding: ItemTenantBinding) : RecyclerView.ViewHolder(binding.root)
+    class ChatViewHolder(val binding: ItemTenantBinding) : RecyclerView.ViewHolder(binding.root)
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TenantViewHolder {
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ChatViewHolder {
         val binding = ItemTenantBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return TenantViewHolder(binding)
+        return ChatViewHolder(binding)
     }
 
-    override fun onBindViewHolder(holder: TenantViewHolder, position: Int) {
+    override fun onBindViewHolder(holder: ChatViewHolder, position: Int) {
         val tenant = tenants[position]
         holder.binding.tvTenantName.text = "${tenant.firstName} ${tenant.lastName}"
         holder.binding.tvTenantEmail.text = tenant.email
         holder.binding.tvTenantAvatar.text = tenant.firstName?.take(1) ?: "T"
         
-        holder.binding.btnEditTenant.setOnClickListener {
-            onEditClick(tenant)
-        }
-
-        holder.binding.btnDeleteTenant.setOnClickListener {
-            onDeleteClick(tenant)
+        // Hide the delete button for the chat list
+        holder.binding.btnDeleteTenant.visibility = View.GONE
+        
+        holder.itemView.setOnClickListener {
+            onChatClick(tenant)
         }
     }
 

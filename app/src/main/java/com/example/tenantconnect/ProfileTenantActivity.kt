@@ -1,16 +1,24 @@
 package com.example.tenantconnect
 
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.View
+import android.view.ViewGroup
+import android.widget.ArrayAdapter
+import android.widget.ListPopupWindow
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.graphics.toColorInt
 import com.example.tenantconnect.databinding.ActivityProfileTenantBinding
-
 import java.util.Locale
 
 class ProfileTenantActivity : AppCompatActivity() {
     private lateinit var binding: ActivityProfileTenantBinding
+    private var currentUser: User? = null
+    private var currentProperty: Property? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -24,6 +32,15 @@ class ProfileTenantActivity : AppCompatActivity() {
             loadUserProfile(userId)
         }
 
+        binding.btnEditProfile.setOnClickListener {
+            currentUser?.let { user ->
+                val dialog = EditProfileDialog(user, currentProperty) {
+                    loadUserProfile(userId!!)
+                }
+                dialog.show(supportFragmentManager, "EditProfileDialog")
+            }
+        }
+
         setupBottomNavigation()
     }
 
@@ -33,6 +50,7 @@ class ProfileTenantActivity : AppCompatActivity() {
             
             val user = snapshot.getValue(User::class.java)
             if (user != null) {
+                currentUser = user
                 binding.tvProfileName.text = "Name: ${user.firstName} ${user.middleName ?: ""} ${user.lastName}"
                 binding.tvProfileRole.text = "Role: ${user.role}"
                 binding.tvProfileSex.text = "Sex: ${user.gender}"
@@ -46,6 +64,7 @@ class ProfileTenantActivity : AppCompatActivity() {
                 } else {
                     setupTenantProfile(userId)
                 }
+                setupMenu() // Refresh menu role logic
             }
         }.addOnFailureListener {
             Toast.makeText(this, "Error loading profile", Toast.LENGTH_SHORT).show()
@@ -63,6 +82,7 @@ class ProfileTenantActivity : AppCompatActivity() {
                 if (isFinishing || isDestroyed) return@addOnSuccessListener
                 val property = snapshot.getValue(Property::class.java)
                 if (property != null) {
+                    currentProperty = property
                     binding.tvResidence.text = "Property: ${property.propertyName}"
                     binding.tvLeaseAddress.text = "Location: ${property.address}"
                     binding.tvExtraInfo.text = "Total Rooms: ${property.totalRooms}"
@@ -96,7 +116,7 @@ class ProfileTenantActivity : AppCompatActivity() {
                     binding.tvContractType.text = "Contract: ${contract.renewalTerm ?: "N/A"}"
                     binding.tvBaseRate.text = "Base rate: ₱${String.format(Locale.US, "%.2f", contract.baseRentAmount)}"
                     
-                    contract.propertyId?.let { fetchPropertyDetails(it) }
+                    fetchPropertyAndRoomDetails(contract.propertyId, contract.roomId)
                 } else {
                     binding.tvResidence.text = "Residence: None"
                     binding.tvLeaseAddress.text = "Address: None"
@@ -106,32 +126,94 @@ class ProfileTenantActivity : AppCompatActivity() {
             }
     }
 
-    private fun fetchPropertyDetails(propertyId: String) {
+    private fun fetchPropertyAndRoomDetails(propertyId: String?, roomId: String?) {
+        if (propertyId == null) return
         FirebaseManager.propertiesRef.child(propertyId).get().addOnSuccessListener { snapshot ->
             if (isFinishing || isDestroyed) return@addOnSuccessListener
             val property = snapshot.getValue(Property::class.java)
             if (property != null) {
-                binding.tvResidence.text = "Residence: ${property.propertyName}"
+                val residenceText = if (roomId != null) "${property.propertyName}, $roomId" else property.propertyName
+                binding.tvResidence.text = "Residence: $residenceText"
                 binding.tvLeaseAddress.text = "Address: ${property.address}"
             }
         }
     }
 
+    private fun setupMenu() {
+        binding.ivMenu.setOnClickListener { view ->
+            val isLandlord = currentUser?.role == "Landlord"
+            val menuItems = arrayOf("Announcements", "Settings", "Log out")
+            
+            val popup = ListPopupWindow(this)
+            popup.anchorView = view
+            
+            val adapter = object : ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, menuItems) {
+                override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                    val view = super.getView(position, convertView, parent) as TextView
+                    view.setTextColor(Color.WHITE)
+                    view.setPadding(40, 30, 40, 30)
+                    view.textSize = 14f
+                    return view
+                }
+            }
+            
+            popup.setAdapter(adapter)
+            popup.width = 600 
+            popup.setBackgroundDrawable(ColorDrawable("#22223B".toColorInt()))
+            
+            popup.setOnItemClickListener { _, _, position, _ ->
+                when (menuItems[position]) {
+                    "Announcements" -> {
+                        if (isLandlord) {
+                            Toast.makeText(this, "Announcements coming soon", Toast.LENGTH_SHORT).show()
+                        } else {
+                            startActivity(Intent(this, AnnouncementsTenantActivity::class.java))
+                        }
+                    }
+                    "Settings" -> startActivity(Intent(this, SettingsTenantActivity::class.java))
+                    "Log out" -> {
+                        FirebaseManager.auth.signOut()
+                        val intent = Intent(this, LoginActivity::class.java)
+                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        startActivity(intent)
+                        finishAffinity()
+                    }
+                }
+                popup.dismiss()
+            }
+            popup.show()
+        }
+    }
+
     private fun setupBottomNavigation() {
         binding.bottomNav.navHome.setOnClickListener {
-            val intent = Intent(this, DashboardTenantActivity::class.java)
+            val isLandlord = currentUser?.role == "Landlord"
+            val intent = if (isLandlord) {
+                Intent(this, DashboardLandlordActivity::class.java)
+            } else {
+                Intent(this, DashboardTenantActivity::class.java)
+            }
             intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             startActivity(intent)
         }
 
         binding.bottomNav.navNotifications.setOnClickListener {
-            val intent = Intent(this, InboxTenantActivity::class.java)
+            val isLandlord = currentUser?.role == "Landlord"
+            val intent = if (isLandlord) {
+                Intent(this, InboxLandlordActivity::class.java)
+            } else {
+                Intent(this, InboxTenantActivity::class.java)
+            }
             startActivity(intent)
         }
 
         binding.bottomNav.navPayments.setOnClickListener {
-            val intent = Intent(this, PaymentHistoryTenantActivity::class.java)
-            startActivity(intent)
+            val isLandlord = currentUser?.role == "Landlord"
+            if (isLandlord) {
+                Toast.makeText(this, "Payments coming soon", Toast.LENGTH_SHORT).show()
+            } else {
+                startActivity(Intent(this, PaymentHistoryTenantActivity::class.java))
+            }
         }
 
         binding.bottomNav.navProfile.setOnClickListener {

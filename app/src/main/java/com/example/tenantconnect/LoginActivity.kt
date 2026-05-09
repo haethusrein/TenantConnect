@@ -96,7 +96,8 @@ class LoginActivity : AppCompatActivity() {
         val userId = FirebaseManager.auth.currentUser?.uid ?: return
         showLoading(true)
         FirebaseManager.usersRef.child(userId).get().addOnSuccessListener { snapshot ->
-            showLoading(false)
+            if (isFinishing || isDestroyed) return@addOnSuccessListener
+            
             val role = snapshot.child("role").getValue(String::class.java)
             
             when (role) {
@@ -108,6 +109,9 @@ class LoginActivity : AppCompatActivity() {
                         // Double check the properties node just in case
                         FirebaseManager.propertiesRef.orderByChild("landlordId").equalTo(userId).get()
                             .addOnSuccessListener { propSnapshot ->
+                                if (isFinishing || isDestroyed) return@addOnSuccessListener
+                                showLoading(false)
+                                
                                 val intent = if (!propSnapshot.exists()) {
                                     Intent(this, LandlordDetailsActivity::class.java).apply {
                                         putExtra("LANDLORD_ID", userId)
@@ -118,19 +122,29 @@ class LoginActivity : AppCompatActivity() {
                                 intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                                 startActivity(intent)
                             }
+                            .addOnFailureListener {
+                                showLoading(false)
+                                // Fallback to Dashboard if the check fails (e.g. index error)
+                                val intent = Intent(this, DashboardLandlordActivity::class.java)
+                                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                startActivity(intent)
+                            }
                     } else {
+                        showLoading(false)
                         val intent = Intent(this, DashboardLandlordActivity::class.java)
                         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                         startActivity(intent)
                     }
                 }
                 "Tenant" -> {
+                    showLoading(false)
                     // Tenants go to their dashboard
                     val intent = Intent(this, DashboardTenantActivity::class.java)
                     intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                     startActivity(intent)
                 }
                 else -> {
+                    showLoading(false)
                     // Role is null or invalid
                     FirebaseManager.auth.signOut()
                     Toast.makeText(this, "Unauthorized access or missing user role.", Toast.LENGTH_LONG).show()

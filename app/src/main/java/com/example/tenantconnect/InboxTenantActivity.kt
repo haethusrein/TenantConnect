@@ -203,7 +203,11 @@ class InboxTenantActivity : AppCompatActivity() {
         }
         
         binding.bottomNav.navNotifications.setOnClickListener {
-            // Already here (Inbox)
+            if (isLandlordMode) {
+                startActivity(Intent(this, InboxLandlordActivity::class.java))
+            } else {
+                // Already here (Inbox)
+            }
         }
         
         binding.bottomNav.navPayments.setOnClickListener {

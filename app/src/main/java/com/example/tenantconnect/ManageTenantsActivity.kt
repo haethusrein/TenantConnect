@@ -32,11 +32,35 @@ class ManageTenantsActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-        adapter = TenantAdapter(tenantList) { tenant ->
-            removeTenant(tenant)
-        }
+        adapter = TenantAdapter(tenantList, 
+            onEditClick = { tenant ->
+                showEditDialog(tenant)
+            },
+            onDeleteClick = { tenant ->
+                removeTenant(tenant)
+            }
+        )
         binding.rvTenants.layoutManager = LinearLayoutManager(this)
         binding.rvTenants.adapter = adapter
+    }
+
+    private fun showEditDialog(tenant: User) {
+        val tenantId = tenant.userId ?: return
+        
+        // Fetch active contract for this tenant to pass to the edit dialog
+        FirebaseManager.contractsRef.orderByChild("tenantId").equalTo(tenantId).get()
+            .addOnSuccessListener { snapshot ->
+                val activeContract = snapshot.children.firstOrNull { 
+                    it.child("status").getValue(String::class.java) == "Active" 
+                }?.getValue(Contract::class.java)
+
+                if (activeContract != null) {
+                    val dialog = EditTenantDialog(tenant, activeContract)
+                    dialog.show(supportFragmentManager, "EditTenantDialog")
+                } else {
+                    Toast.makeText(this, "No active contract found for this tenant.", Toast.LENGTH_SHORT).show()
+                }
+            }
     }
 
     private fun loadTenants() {
@@ -68,6 +92,17 @@ class ManageTenantsActivity : AppCompatActivity() {
     private fun removeTenant(tenant: User) {
         val tenantId = tenant.userId ?: return
         
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Remove Tenant")
+            .setMessage("Are you sure you want to remove ${tenant.firstName} ${tenant.lastName}? This will vacate their room and terminate the contract.")
+            .setPositiveButton("Remove") { _, _ ->
+                performRemoval(tenantId)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun performRemoval(tenantId: String) {
         // Multi-path update to remove tenant and clean up room/contract
         val updates = hashMapOf<String, Any?>()
         
@@ -97,7 +132,7 @@ class ManageTenantsActivity : AppCompatActivity() {
                 // Perform the batch update
                 FirebaseManager.database.reference.updateChildren(updates)
                     .addOnSuccessListener {
-                        Toast.makeText(this, "Tenant removed and data cleaned up", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Tenant removed successfully", Toast.LENGTH_SHORT).show()
                     }
                     .addOnFailureListener {
                         Toast.makeText(this, "Failed to remove tenant: ${it.message}", Toast.LENGTH_SHORT).show()

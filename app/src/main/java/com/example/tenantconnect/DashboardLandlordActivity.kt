@@ -88,7 +88,7 @@ class DashboardLandlordActivity : AppCompatActivity() {
                     Toast.makeText(this, "Announcements coming soon", Toast.LENGTH_SHORT).show()
                 }
                 "Settings" -> {
-                    Toast.makeText(this, "Settings coming soon", Toast.LENGTH_SHORT).show()
+                    startActivity(Intent(this, SettingsTenantActivity::class.java))
                 }
                 "Log Out" -> {
                     FirebaseManager.auth.signOut()
@@ -139,11 +139,10 @@ class DashboardLandlordActivity : AppCompatActivity() {
         }
 
         binding.bottomNav.navNotifications.setOnClickListener {
-            startActivity(Intent(this, InboxTenantActivity::class.java))
+            startActivity(Intent(this, InboxLandlordActivity::class.java))
         }
 
         binding.bottomNav.navPayments.setOnClickListener {
-            // Target Landlord Payments Activity when created
             Toast.makeText(this, "Payments management coming soon", Toast.LENGTH_SHORT).show()
         }
 

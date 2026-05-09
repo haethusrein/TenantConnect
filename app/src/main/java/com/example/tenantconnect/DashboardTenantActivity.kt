@@ -23,6 +23,7 @@ import java.util.Locale
 class DashboardTenantActivity : AppCompatActivity() {
     private lateinit var binding: ActivityDashboardTenantBinding
     private var invitationListener: ValueEventListener? = null
+    private var contractListener: ValueEventListener? = null
     private var isDialogShowing = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,6 +36,7 @@ class DashboardTenantActivity : AppCompatActivity() {
         if (userId != null) {
             loadUserData(userId)
             listenForInvitations(userId)
+            listenForContractChanges(userId)
         } else {
             // Handle case where user is not logged in
             startActivity(Intent(this, LoginActivity::class.java))
@@ -44,6 +46,37 @@ class DashboardTenantActivity : AppCompatActivity() {
         setupBottomNavigation()
         setupMenu()
         setupDashboardButtons()
+    }
+
+    private fun listenForContractChanges(userId: String) {
+        // Targeted Query: Listen for the tenant's active contract in real-time
+        contractListener = FirebaseManager.contractsRef.orderByChild("tenantId").equalTo(userId)
+            .addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (isFinishing || isDestroyed) return
+                    
+                    val activeContract = snapshot.children.firstOrNull { 
+                        it.child("status").getValue(String::class.java) == "Active" 
+                    }?.getValue(Contract::class.java)
+
+                    if (activeContract != null) {
+                        // Switch UI to active state immediately
+                        binding.mainContentLayout.isVisible = true
+                        binding.layoutEmpty.root.isVisible = false
+                        
+                        displayAccommodation(activeContract.propertyId, activeContract.roomId)
+                        displayLatestPayment(activeContract.contractId)
+                        displayRecentAnnouncement(activeContract.propertyId)
+                    } else {
+                        // Show empty state if no active contract found
+                        showNoAccommodationState()
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    // Log error if needed
+                }
+            })
     }
 
     private fun listenForInvitations(userId: String) {
@@ -101,6 +134,9 @@ class DashboardTenantActivity : AppCompatActivity() {
         invitationListener?.let {
             FirebaseManager.invitationsRef.removeEventListener(it)
         }
+        contractListener?.let {
+            FirebaseManager.contractsRef.removeEventListener(it)
+        }
     }
 
     private fun setupDashboardButtons() {
@@ -122,42 +158,24 @@ class DashboardTenantActivity : AppCompatActivity() {
             val user = snapshot.getValue(User::class.java)
             if (user != null) {
                 binding.tvGreeting.text = "Hello, ${user.firstName}!"
-                fetchTenantDetails(userId)
+                // Contract and property data now handled by listenForContractChanges
             }
         }.addOnFailureListener {
             Toast.makeText(this, "Error loading data: ${it.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun fetchTenantDetails(userId: String) {
-        // 1. Get Active Contract
-        FirebaseManager.contractsRef.orderByChild("tenantId").equalTo(userId).get()
-            .addOnSuccessListener { snapshot ->
-                if (isFinishing || isDestroyed) return@addOnSuccessListener
-                
-                val contract = snapshot.children.firstOrNull { 
-                    it.child("status").getValue(String::class.java) == "Active" 
-                }?.getValue(Contract::class.java)
-
-                if (contract != null) {
-                    displayAccommodation(contract.propertyId)
-                    displayLatestPayment(contract.contractId)
-                    displayRecentAnnouncement(contract.propertyId)
-                } else {
-                    showNoAccommodationState()
-                }
-            }
-    }
-
-    private fun displayAccommodation(propertyId: String?) {
+    private fun displayAccommodation(propertyId: String?, roomId: String?) {
         if (propertyId == null) return
         FirebaseManager.propertiesRef.child(propertyId).get().addOnSuccessListener { snapshot ->
             if (isFinishing || isDestroyed) return@addOnSuccessListener
             val property = snapshot.getValue(Property::class.java)
             if (property != null) {
-                binding.tvAccommodationLabel.visibility = View.VISIBLE
-                binding.tvAccommodationAddress.visibility = View.VISIBLE
-                binding.tvAccommodation.text = property.propertyName
+                binding.tvAccommodationLabel.isVisible = true
+                binding.tvAccommodationAddress.isVisible = true
+                
+                val displayText = if (roomId != null) "${property.propertyName}, $roomId" else property.propertyName
+                binding.tvAccommodation.text = displayText
                 binding.tvAccommodationAddress.text = property.address
             }
         }
@@ -170,12 +188,12 @@ class DashboardTenantActivity : AppCompatActivity() {
                 if (isFinishing || isDestroyed) return@addOnSuccessListener
                 val billing = snapshot.children.firstOrNull()?.getValue(Billing::class.java)
                 if (billing != null) {
-                    binding.tvPaymentLabel.visibility = View.VISIBLE
-                    binding.tvPaymentDueDate.visibility = View.VISIBLE
+                    binding.tvPaymentLabel.isVisible = true
+                    binding.tvPaymentDueDate.isVisible = true
                     
                     val safeAmount = billing.totalAmount ?: 0.0
                     binding.tvPaymentAmount.text = "₱${String.format(Locale.US, "%.2f", safeAmount)}"
-
+                    
                     binding.tvPaymentDueDate.text = "Due: ${billing.dueDate}"
                     binding.tvPaymentAmount.textSize = 24f
                     binding.tvPaymentAmount.setPadding(0, 0, 0, 0)
@@ -200,8 +218,8 @@ class DashboardTenantActivity : AppCompatActivity() {
     }
 
     private fun showNoAccommodationState() {
-        binding.mainContentLayout.visibility = View.GONE
-        binding.layoutEmpty.root.visibility = View.VISIBLE
+        binding.mainContentLayout.isVisible = false
+        binding.layoutEmpty.root.isVisible = true
     }
 
     private fun setupMenu() {

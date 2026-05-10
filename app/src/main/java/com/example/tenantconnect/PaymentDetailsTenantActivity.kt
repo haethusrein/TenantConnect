@@ -7,8 +7,10 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.ListPopupWindow
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import coil.load
@@ -28,6 +30,7 @@ class PaymentDetailsTenantActivity : AppCompatActivity() {
     private var activeContract: Contract? = null
     private var currentProperty: Property? = null
     private var selectedMethod: String = ""
+    private var activeContracts = mutableListOf<Contract>()
     private var billingListener: ValueEventListener? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,16 +54,45 @@ class PaymentDetailsTenantActivity : AppCompatActivity() {
     private fun loadInitialData(userId: String) {
         FirebaseManager.contractsRef.orderByChild("tenantId").equalTo(userId).get()
             .addOnSuccessListener { snapshot ->
-                activeContract = snapshot.children.firstOrNull { 
-                    it.child("status").getValue(String::class.java) == "Active" 
-                }?.getValue(Contract::class.java)
+                activeContracts = snapshot.children.mapNotNull { it.getValue(Contract::class.java) }
+                    .filter { it.status == "Active" }.toMutableList()
 
-                activeContract?.let { contract ->
-                    fetchPropertyInfo(contract.propertyId)
-                    fetchTenantInfo(userId)
-                    listenForLatestBilling(contract.contractId)
+                if (activeContracts.isNotEmpty()) {
+                    setupContractSpinner()
+                    // Initial update with the first contract
+                    updatePaymentInfo(activeContracts[0])
+                } else {
+                    binding.spinnerContracts.isVisible = false
+                    resetBillingDisplay()
                 }
             }
+    }
+
+    private fun setupContractSpinner() {
+        if (activeContracts.size > 1) {
+            binding.spinnerContracts.isVisible = true
+            val contractNames = activeContracts.map { "Unit ${it.roomId}" }
+            val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, contractNames)
+            binding.spinnerContracts.adapter = adapter
+            
+            binding.spinnerContracts.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    updatePaymentInfo(activeContracts[position])
+                }
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        } else {
+            binding.spinnerContracts.isVisible = false
+        }
+    }
+
+    private fun updatePaymentInfo(contract: Contract) {
+        activeContract = contract
+        val userId = FirebaseManager.auth.currentUser?.uid ?: return
+        
+        fetchPropertyInfo(contract.propertyId)
+        fetchTenantInfo(userId)
+        listenForLatestBilling(contract.contractId)
     }
 
     private fun listenForLatestBilling(contractId: String?) {

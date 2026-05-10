@@ -10,6 +10,7 @@ import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.ListPopupWindow
 import android.widget.TextView
+import android.widget.Spinner
 import android.widget.Toast
 import coil.load
 import androidx.appcompat.app.AlertDialog
@@ -27,6 +28,7 @@ class DashboardTenantActivity : AppCompatActivity() {
     private var invitationListener: ValueEventListener? = null
     private var contractListener: ValueEventListener? = null
     private var billingListener: ValueEventListener? = null
+    private var activeContracts = mutableListOf<Contract>()
     private var isDialogShowing = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,24 +59,62 @@ class DashboardTenantActivity : AppCompatActivity() {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     if (isFinishing || isDestroyed) return
                     
-                    val activeContract = snapshot.children.firstOrNull { 
-                        it.child("status").getValue(String::class.java) == "Active" 
-                    }?.getValue(Contract::class.java)
+                    activeContracts = snapshot.children.mapNotNull { it.getValue(Contract::class.java) }
+                        .filter { it.status == "Active" }.toMutableList()
 
-                    if (activeContract != null) {
+                    if (activeContracts.isNotEmpty()) {
                         binding.mainContentLayout.isVisible = true
                         binding.layoutEmpty.layoutEmptyAccommodation.isVisible = false
                         
-                        displayAccommodation(activeContract.propertyId, activeContract.roomId)
-                        listenForDashboardBilling(activeContract.contractId)
-                        displayRecentAnnouncement(activeContract.propertyId)
+                        setupContractSpinner()
+                        // Initial update with the first contract
+                        updateDashboardWithContract(activeContracts[0])
                     } else {
+                        binding.spinnerContracts.isVisible = false
                         showNoAccommodationState()
                     }
                 }
 
                 override fun onCancelled(error: DatabaseError) {}
             })
+    }
+
+    private fun setupContractSpinner() {
+        if (activeContracts.size > 1) {
+            binding.spinnerContracts.isVisible = true
+            
+            // Map contracts to readable names for the spinner
+            val contractNames = activeContracts.map { "Unit ${it.roomId}" }
+            val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, contractNames)
+            binding.spinnerContracts.adapter = adapter
+            
+            binding.spinnerContracts.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    updateDashboardWithContract(activeContracts[position])
+                }
+                override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+            }
+        } else {
+            binding.spinnerContracts.isVisible = false
+        }
+    }
+
+    private fun updateDashboardWithContract(contract: Contract) {
+        displayAccommodation(contract.propertyId, contract.roomId)
+        listenForDashboardBilling(contract.contractId)
+        displayRecentAnnouncement(contract.propertyId)
+        
+        // Update listeners for "View Details" and "View Payments" to pass current contract info
+        binding.btnViewPayments.setOnClickListener {
+            val intent = Intent(this, PaymentTenantActivity::class.java)
+            intent.putExtra("CONTRACT_ID", contract.contractId)
+            startActivity(intent)
+        }
+        binding.btnViewDetails.setOnClickListener {
+            val intent = Intent(this, ViewContractActivity::class.java)
+            intent.putExtra("CONTRACT_ID", contract.contractId)
+            startActivity(intent)
+        }
     }
 
     private fun listenForDashboardBilling(contractId: String?) {

@@ -60,7 +60,8 @@ class AddTenantDialog : BottomSheetDialogFragment() {
                     val tenant = tenantSnapshot.getValue(User::class.java)
                     
                     if (tenant != null && tenant.role == "Tenant") {
-                        binding.tvSearchResult.text = "Found: ${tenant.firstName} ${tenant.lastName}"
+                        val sanitizedName = "${tenant.firstName} ${tenant.lastName?.take(1)}."
+                        binding.tvSearchResult.text = "Found: $sanitizedName"
                         binding.tvSearchResult.setTextColor(binding.root.context.getColor(R.color.navy))
                         binding.tvSearchResult.isVisible = true
 

@@ -23,6 +23,7 @@ class InboxTenantActivity : AppCompatActivity() {
     private var targetUserId: String? = null
     private var isLandlordMode: Boolean = false
     private var chatId: String? = null
+    private var activeContractId: String? = null
     private var messagesListener: ValueEventListener? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,13 +69,38 @@ class InboxTenantActivity : AppCompatActivity() {
                 }
             }
 
-            // Create unique chatId by sorting IDs alphabetically to ensure consistency for both users
-            val ids = listOf(currentUserId, targetUserId!!).sorted()
-            chatId = "${ids[0]}_${ids[1]}"
-            
-            setupRecyclerView(currentUserId)
-            setupMessaging()
+            verifyContractAndSetupChat(currentUserId, targetUserId!!)
         }
+    }
+
+    private fun verifyContractAndSetupChat(currentUserId: String, partnerId: String) {
+        // Query contracts where current user is either tenant or landlord and partner is the other party
+        FirebaseManager.contractsRef.orderByChild("status").equalTo("Active").get()
+            .addOnSuccessListener { snapshot ->
+                val contract = snapshot.children.mapNotNull { it.getValue(Contract::class.java) }
+                    .firstOrNull { 
+                        (it.tenantId == currentUserId && it.landlordId == partnerId) ||
+                        (it.tenantId == partnerId && it.landlordId == currentUserId)
+                    }
+
+                if (contract != null) {
+                    activeContractId = contract.contractId
+                    
+                    // Create unique chatId including contractId to prevent merging histories of different leases
+                    val ids = listOf(currentUserId, partnerId).sorted()
+                    chatId = "${ids[0]}_${ids[1]}_$activeContractId"
+                    
+                    setupRecyclerView(currentUserId)
+                    setupMessaging()
+                } else {
+                    Toast.makeText(this, "Unauthorized: No active lease found", Toast.LENGTH_LONG).show()
+                    finish()
+                }
+            }
+            .addOnFailureListener {
+                Toast.makeText(this, "Verification failed: ${it.message}", Toast.LENGTH_SHORT).show()
+                finish()
+            }
     }
 
     private fun setupRecyclerView(currentUserId: String) {

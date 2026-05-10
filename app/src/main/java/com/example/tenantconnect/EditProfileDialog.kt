@@ -99,22 +99,67 @@ class EditProfileDialog(
                 "civilStatus" to civilStatus
             )
             
-            selectedImageUri?.let { updates["profilePhotoUrl"] = it.toString() }
+            val uid = user.userId ?: return@setOnClickListener
 
-            user.userId?.let { uid ->
-                FirebaseManager.usersRef.child(uid).updateChildren(updates)
-                    .addOnSuccessListener {
-                        Toast.makeText(context, "Profile updated!", Toast.LENGTH_SHORT).show()
-                        onUpdateSuccess()
-                        dismiss()
+            if (selectedImageUri != null) {
+                uploadImage(selectedImageUri!!) { downloadUrl ->
+                    if (downloadUrl != null) {
+                        updates["profilePhotoUrl"] = downloadUrl
                     }
-                    .addOnFailureListener {
-                        Toast.makeText(context, "Update failed: ${it.message}", Toast.LENGTH_SHORT).show()
-                    }
+                    saveTenantUpdates(uid, updates)
+                }
+            } else {
+                saveTenantUpdates(uid, updates)
             }
         }
 
         b.btnCancel.setOnClickListener { dismiss() }
+    }
+
+    private fun saveTenantUpdates(uid: String, updates: Map<String, Any?>) {
+        setLoading(true)
+        FirebaseManager.usersRef.child(uid).updateChildren(updates)
+            .addOnSuccessListener {
+                setLoading(false)
+                Toast.makeText(context, "Profile updated!", Toast.LENGTH_SHORT).show()
+                onUpdateSuccess()
+                dismiss()
+            }
+            .addOnFailureListener {
+                setLoading(false)
+                Toast.makeText(context, "Update failed: ${it.message}", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private fun uploadImage(uri: Uri, callback: (String?) -> Unit) {
+        setLoading(true)
+        val fileName = "${user.userId}_${System.currentTimeMillis()}.jpg"
+        val ref = FirebaseManager.profilePhotosRef.child(fileName)
+
+        ref.putFile(uri)
+            .addOnSuccessListener {
+                ref.downloadUrl.addOnSuccessListener { downloadUri ->
+                    callback(downloadUri.toString())
+                }.addOnFailureListener {
+                    setLoading(false)
+                    Toast.makeText(context, "Failed to get download URL", Toast.LENGTH_SHORT).show()
+                    callback(null)
+                }
+            }
+            .addOnFailureListener {
+                setLoading(false)
+                Toast.makeText(context, "Upload failed: ${it.message}", Toast.LENGTH_SHORT).show()
+                callback(null)
+            }
+    }
+
+    private fun setLoading(isLoading: Boolean) {
+        val progressBar = if (user.role == "Landlord") _landlordBinding?.progressBar else _tenantBinding?.progressBar
+        val btnSave = if (user.role == "Landlord") _landlordBinding?.btnSave else _tenantBinding?.btnSave
+        
+        progressBar?.visibility = if (isLoading) View.VISIBLE else View.GONE
+        btnSave?.isEnabled = !isLoading
+        isCancelable = !isLoading
     }
 
     private fun setupLandlordEdit() {
@@ -165,25 +210,40 @@ class EditProfileDialog(
             updates["users/$uid/occupation"] = occupation
             updates["users/$uid/originalAddress"] = personalAddr
             updates["users/$uid/civilStatus"] = civilStatus
-            selectedImageUri?.let { updates["users/$uid/profilePhotoUrl"] = it.toString() }
             
             // 2. Property Node
             updates["properties/$propId/propertyName"] = propName
             updates["properties/$propId/address"] = propAddr
             updates["properties/$propId/totalRooms"] = units
 
-            FirebaseManager.database.reference.updateChildren(updates)
-                .addOnSuccessListener {
-                    Toast.makeText(context, "Profile and Property updated!", Toast.LENGTH_SHORT).show()
-                    onUpdateSuccess()
-                    dismiss()
+            if (selectedImageUri != null) {
+                uploadImage(selectedImageUri!!) { downloadUrl ->
+                    if (downloadUrl != null) {
+                        updates["users/$uid/profilePhotoUrl"] = downloadUrl
+                    }
+                    performLandlordUpdates(updates)
                 }
-                .addOnFailureListener {
-                    Toast.makeText(context, "Update failed: ${it.message}", Toast.LENGTH_SHORT).show()
-                }
+            } else {
+                performLandlordUpdates(updates)
+            }
         }
 
         b.btnCancel.setOnClickListener { dismiss() }
+    }
+
+    private fun performLandlordUpdates(updates: Map<String, Any?>) {
+        setLoading(true)
+        FirebaseManager.database.reference.updateChildren(updates)
+            .addOnSuccessListener {
+                setLoading(false)
+                Toast.makeText(context, "Profile and Property updated!", Toast.LENGTH_SHORT).show()
+                onUpdateSuccess()
+                dismiss()
+            }
+            .addOnFailureListener {
+                setLoading(false)
+                Toast.makeText(context, "Update failed: ${it.message}", Toast.LENGTH_SHORT).show()
+            }
     }
 
     override fun onDestroyView() {

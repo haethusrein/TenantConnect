@@ -10,16 +10,19 @@ import androidx.core.view.isVisible
 import com.example.tenantconnect.databinding.ActivityLandlordDetailsBinding
 
 import android.net.Uri
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import coil.load
+import com.google.firebase.storage.FirebaseStorage
 
 class LandlordDetailsActivity : AppCompatActivity() {
     private lateinit var binding: ActivityLandlordDetailsBinding
     private var qrImageUri: Uri? = null
 
-    private val selectImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    private val selectImageLauncher = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let {
             qrImageUri = it
-            binding.ivQrPreview.setImageURI(it)
+            binding.ivQrPreview.load(it)
             binding.ivQrPreview.isVisible = true
             binding.btnUploadQr.isVisible = false
         }
@@ -33,11 +36,11 @@ class LandlordDetailsActivity : AppCompatActivity() {
         val landlordId = intent.getStringExtra("LANDLORD_ID") ?: FirebaseManager.auth.currentUser?.uid
 
         binding.btnUploadQr.setOnClickListener {
-            selectImageLauncher.launch("image/*")
+            selectImageLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         }
 
         binding.ivQrPreview.setOnClickListener {
-            selectImageLauncher.launch("image/*")
+            selectImageLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         }
 
         binding.btnSubmitDetails.setOnClickListener {
@@ -80,16 +83,45 @@ class LandlordDetailsActivity : AppCompatActivity() {
     private fun savePropertyDetails(landlordId: String, name: String, address: String, totalRooms: Int) {
         showLoading(true)
         val propertyId = FirebaseManager.propertiesRef.push().key ?: return
-        
-        // Note: For now, we store the local URI string as a placeholder for the upload.
-        // In a real app, you would upload to Firebase Storage and store the resulting URL.
+
+        if (qrImageUri != null) {
+            uploadPropertyImage(propertyId, qrImageUri!!) { downloadUrl ->
+                performPropertySave(landlordId, propertyId, name, address, totalRooms, downloadUrl)
+            }
+        } else {
+            performPropertySave(landlordId, propertyId, name, address, totalRooms, null)
+        }
+    }
+
+    private fun uploadPropertyImage(propertyId: String, uri: Uri, callback: (String?) -> Unit) {
+        val fileName = "prop_${propertyId}_${System.currentTimeMillis()}.jpg"
+        val ref = FirebaseManager.storage.getReference("property_photos").child(fileName)
+
+        ref.putFile(uri)
+            .addOnSuccessListener {
+                ref.downloadUrl.addOnSuccessListener { downloadUri ->
+                    callback(downloadUri.toString())
+                }.addOnFailureListener {
+                    showLoading(false)
+                    Toast.makeText(this, "Failed to get download URL", Toast.LENGTH_SHORT).show()
+                    callback(null)
+                }
+            }
+            .addOnFailureListener {
+                showLoading(false)
+                Toast.makeText(this, "Upload failed: ${it.message}", Toast.LENGTH_SHORT).show()
+                callback(null)
+            }
+    }
+
+    private fun performPropertySave(landlordId: String, propertyId: String, name: String, address: String, totalRooms: Int, imageUrl: String?) {
         val property = Property(
             propertyId = propertyId,
             landlordId = landlordId,
             propertyName = name,
             address = address,
             totalRooms = totalRooms,
-            coverPhotoUrl = qrImageUri?.toString() // Using this as the payment QR placeholder for now
+            coverPhotoUrl = imageUrl
         )
 
         FirebaseManager.propertiesRef.child(propertyId).setValue(property)

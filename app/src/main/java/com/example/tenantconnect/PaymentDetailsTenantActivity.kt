@@ -11,6 +11,7 @@ import android.widget.ArrayAdapter
 import android.widget.ListPopupWindow
 import android.widget.TextView
 import android.widget.Toast
+import coil.load
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.net.toUri
@@ -160,7 +161,7 @@ class PaymentDetailsTenantActivity : AppCompatActivity() {
         val btnPaid = dialogView.findViewById<android.widget.Button>(R.id.btn_already_paid)
         
         currentProperty?.coverPhotoUrl?.let {
-            ivQr.setImageURI(it.toUri())
+            ivQr.load(it)
         }
 
         val dialog = AlertDialog.Builder(this)

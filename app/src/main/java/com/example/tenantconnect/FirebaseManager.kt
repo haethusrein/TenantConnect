@@ -2,10 +2,12 @@ package com.example.tenantconnect
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.storage.FirebaseStorage
 
 object FirebaseManager {
     val auth: FirebaseAuth get() = FirebaseAuth.getInstance()
     val database: FirebaseDatabase get() = FirebaseDatabase.getInstance("https://tenantconnect-5838a3fe-default-rtdb.asia-southeast1.firebasedatabase.app")
+    val storage: FirebaseStorage get() = FirebaseStorage.getInstance()
     
     val usersRef get() = database.getReference("users")
     val propertiesRef get() = database.getReference("properties")
@@ -18,4 +20,6 @@ object FirebaseManager {
     val maintenanceRef get() = database.getReference("maintenance_requests")
     val transactionsRef get() = database.getReference("payment_transactions")
     val documentsRef get() = database.getReference("documents")
+
+    val profilePhotosRef get() = storage.getReference("profile_photos")
 }

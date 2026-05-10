@@ -1,8 +1,10 @@
 package com.example.tenantconnect
 
-import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
+import android.util.Base64
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -13,6 +15,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.example.tenantconnect.databinding.DialogEditProfileTenantBinding
 import com.example.tenantconnect.databinding.DialogEditProfileLandlordBinding
+import java.io.ByteArrayOutputStream
 
 class EditProfileDialog(
     private val user: User,
@@ -28,18 +31,6 @@ class EditProfileDialog(
     private val selectImageLauncher = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let {
             selectedImageUri = it
-            
-            // 1. Request persistent permission so it's accessible later
-            try {
-                val contentResolver = requireContext().contentResolver
-                val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                contentResolver.takePersistableUriPermission(it, takeFlags)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-
-            // 2. Dynamic Update: Show preview immediately in the dialog using Coil
             if (user.role == "Landlord") {
                 _landlordBinding?.ivProfilePreview?.load(it)
             } else {
@@ -51,21 +42,12 @@ class EditProfileDialog(
     private val selectQrLauncher = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let {
             selectedQrUri = it
-            // Show preview immediately using Coil
             _landlordBinding?.ivQrPreview?.load(it)
-            
-            // Request persistent permission
-            try {
-                val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                requireContext().contentResolver.takePersistableUriPermission(it, takeFlags)
-            } catch (e: Exception) { e.printStackTrace() }
         }
     }
 
     override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         return if (user.role == "Landlord") {
             _landlordBinding = DialogEditProfileLandlordBinding.inflate(inflater, container, false)
@@ -78,12 +60,7 @@ class EditProfileDialog(
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
-        if (user.role == "Landlord") {
-            setupLandlordEdit()
-        } else {
-            setupTenantEdit()
-        }
+        if (user.role == "Landlord") setupLandlordEdit() else setupTenantEdit()
     }
 
     private fun setupTenantEdit() {
@@ -91,231 +68,153 @@ class EditProfileDialog(
         b.etOccupation.setText(user.occupation)
         b.etAddress.setText(user.originalAddress)
         b.etCivilStatus.setText(user.civilStatus)
-        
-        // Initial display of existing photo
-        user.profilePhotoUrl?.let { uriString ->
-            b.ivProfilePreview.load(uriString) {
-                crossfade(true)
-            }
-        }
+        ImageUtils.loadImage(b.ivProfilePreview, user.profilePhotoUrl)
 
         b.btnChangePhoto.setOnClickListener {
             selectImageLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         }
 
         b.btnSave.setOnClickListener {
-            val occupation = b.etOccupation.text.toString().trim()
-            val address = b.etAddress.text.toString().trim()
-            val civilStatus = b.etCivilStatus.text.toString().trim()
-
-            val updates = mutableMapOf<String, Any?>(
-                "occupation" to occupation,
-                "originalAddress" to address,
-                "civilStatus" to civilStatus
-            )
-            
             val uid = user.userId ?: return@setOnClickListener
+            val updates = hashMapOf<String, Any?>(
+                "occupation" to b.etOccupation.text.toString().trim(),
+                "originalAddress" to b.etAddress.text.toString().trim(),
+                "civilStatus" to b.etCivilStatus.text.toString().trim()
+            )
 
             if (selectedImageUri != null) {
-                uploadImage(selectedImageUri!!) { downloadUrl ->
-                    if (downloadUrl != null) {
-                        updates["profilePhotoUrl"] = downloadUrl
+                processImageToBase64(selectedImageUri!!, 300) { base64 ->
+                    if (base64 != null) {
+                        updates["profilePhotoUrl"] = base64
                     }
-                    saveTenantUpdates(uid, updates)
+                    saveUpdates(uid, updates)
                 }
             } else {
-                saveTenantUpdates(uid, updates)
+                saveUpdates(uid, updates)
             }
         }
-
         b.btnCancel.setOnClickListener { dismiss() }
-    }
-
-    private fun saveTenantUpdates(uid: String, updates: Map<String, Any?>) {
-        setLoading(true)
-        FirebaseManager.usersRef.child(uid).updateChildren(updates)
-            .addOnSuccessListener {
-                setLoading(false)
-                Toast.makeText(context, "Profile updated!", Toast.LENGTH_SHORT).show()
-                onUpdateSuccess()
-                dismiss()
-            }
-            .addOnFailureListener {
-                setLoading(false)
-                Toast.makeText(context, "Update failed: ${it.message}", Toast.LENGTH_SHORT).show()
-            }
-    }
-
-    private fun uploadImage(uri: Uri, callback: (String?) -> Unit) {
-        setLoading(true)
-        val uid = user.userId ?: return callback(null)
-        val fileName = "${uid}_${System.currentTimeMillis()}.jpg"
-        val ref = FirebaseManager.profilePhotosRef.child(fileName)
-
-        ref.putFile(uri)
-            .addOnSuccessListener {
-                ref.downloadUrl.addOnSuccessListener { downloadUri ->
-                    callback(downloadUri.toString())
-                }.addOnFailureListener {
-                    setLoading(false)
-                    Toast.makeText(context, "Failed to get download URL", Toast.LENGTH_SHORT).show()
-                    callback(null)
-                }
-            }
-            .addOnFailureListener {
-                setLoading(false)
-                Toast.makeText(context, "Upload failed: ${it.message}", Toast.LENGTH_SHORT).show()
-                callback(null)
-            }
-    }
-
-    private fun setLoading(isLoading: Boolean) {
-        val progressBar = if (user.role == "Landlord") _landlordBinding?.progressBar else _tenantBinding?.progressBar
-        val btnSave = if (user.role == "Landlord") _landlordBinding?.btnSave else _tenantBinding?.btnSave
-        
-        progressBar?.visibility = if (isLoading) View.VISIBLE else View.GONE
-        btnSave?.isEnabled = !isLoading
-        isCancelable = !isLoading
     }
 
     private fun setupLandlordEdit() {
         val b = _landlordBinding!!
-        
-        // Populate Personal Info
         b.etOccupation.setText(user.occupation)
         b.etPersonalAddress.setText(user.originalAddress)
         b.etCivilStatus.setText(user.civilStatus)
+        ImageUtils.loadImage(b.ivProfilePreview, user.profilePhotoUrl)
         
-        // Initial display of existing photo
-        user.profilePhotoUrl?.let { uriString ->
-            b.ivProfilePreview.load(uriString) {
-                crossfade(true)
-            }
-        }
+        b.etPropertyName.setText(property?.propertyName)
+        b.etPropertyAddress.setText(property?.address)
+        b.etTotalUnits.setText(property?.totalRooms?.toString())
+        ImageUtils.loadImage(b.ivQrPreview, property?.coverPhotoUrl, android.R.drawable.ic_menu_gallery)
 
         b.btnChangePhoto.setOnClickListener {
             selectImageLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         }
-        
-        // Populate Property Info
-        b.etPropertyName.setText(property?.propertyName)
-        b.etPropertyAddress.setText(property?.address)
-        b.etTotalUnits.setText(property?.totalRooms?.toString())
-
-        // Initial display of existing QR
-        property?.coverPhotoUrl?.let {
-            b.ivQrPreview.load(it)
-        }
-
         b.btnChangeQr.setOnClickListener {
             selectQrLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         }
 
         b.btnSave.setOnClickListener {
-            val occupation = b.etOccupation.text.toString().trim()
-            val personalAddr = b.etPersonalAddress.text.toString().trim()
-            val civilStatus = b.etCivilStatus.text.toString().trim()
-            
-            val propName = b.etPropertyName.text.toString().trim()
-            val propAddr = b.etPropertyAddress.text.toString().trim()
-            val units = b.etTotalUnits.text.toString().trim().toIntOrNull() ?: 0
-
-            if (propName.isEmpty() || propAddr.isEmpty()) {
-                Toast.makeText(context, "Property Name and Address are required", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
             val uid = user.userId ?: return@setOnClickListener
             val propId = property?.propertyId ?: return@setOnClickListener
-
-            // Perform updates across two nodes
             val updates = hashMapOf<String, Any?>()
             
-            // 1. User Node
-            updates["users/$uid/occupation"] = occupation
-            updates["users/$uid/originalAddress"] = personalAddr
-            updates["users/$uid/civilStatus"] = civilStatus
-            
-            // 2. Property Node
-            updates["properties/$propId/propertyName"] = propName
-            updates["properties/$propId/address"] = propAddr
-            updates["properties/$propId/totalRooms"] = units
+            updates["users/$uid/occupation"] = b.etOccupation.text.toString().trim()
+            updates["users/$uid/originalAddress"] = b.etPersonalAddress.text.toString().trim()
+            updates["users/$uid/civilStatus"] = b.etCivilStatus.text.toString().trim()
+            updates["properties/$propId/propertyName"] = b.etPropertyName.text.toString().trim()
+            updates["properties/$propId/address"] = b.etPropertyAddress.text.toString().trim()
+            updates["properties/$propId/totalRooms"] = b.etTotalUnits.text.toString().trim().toIntOrNull() ?: 0
 
-            if (selectedImageUri != null || selectedQrUri != null) {
-                uploadAllImages(uid, propId, updates)
-            } else {
-                performLandlordUpdates(updates)
-            }
+            processLandlordImages(uid, propId, updates)
         }
-
         b.btnCancel.setOnClickListener { dismiss() }
     }
 
-    private fun uploadAllImages(uid: String, propId: String, updates: HashMap<String, Any?>) {
+    private fun processLandlordImages(uid: String, propId: String, updates: HashMap<String, Any?>) {
         setLoading(true)
-        var profileDone = selectedImageUri == null
-        var qrDone = selectedQrUri == null
+        var pDone = selectedImageUri == null
+        var qDone = selectedQrUri == null
+        var hasError = false
 
-        fun checkDone() {
-            if (profileDone && qrDone) {
-                performLandlordUpdates(updates)
-            }
+        fun check() { 
+            if (hasError) return
+            if (pDone && qDone) saveUpdates("", updates, true) 
         }
 
         if (selectedImageUri != null) {
-            val fileName = "${uid}_${System.currentTimeMillis()}.jpg"
-            val ref = FirebaseManager.profilePhotosRef.child(fileName)
-            ref.putFile(selectedImageUri!!)
-                .addOnSuccessListener {
-                    ref.downloadUrl.addOnSuccessListener { downloadUri ->
-                        updates["users/$uid/profilePhotoUrl"] = downloadUri.toString()
-                        profileDone = true
-                        checkDone()
-                    }.addOnFailureListener {
-                        setLoading(false)
-                        Toast.makeText(context, "Failed to get profile URL", Toast.LENGTH_SHORT).show()
-                    }
-                }
-                .addOnFailureListener {
-                    setLoading(false)
-                    Toast.makeText(context, "Profile upload failed: ${it.message}", Toast.LENGTH_SHORT).show()
-                }
+            processImageToBase64(selectedImageUri!!, 300) { 
+                if (it != null) updates["users/$uid/profilePhotoUrl"] = it else hasError = true
+                pDone = true
+                check() 
+            }
         }
-
         if (selectedQrUri != null) {
-            val fileName = "prop_${propId}_${System.currentTimeMillis()}.jpg"
-            val ref = FirebaseManager.storage.getReference("property_photos").child(fileName)
-            ref.putFile(selectedQrUri!!)
-                .addOnSuccessListener {
-                    ref.downloadUrl.addOnSuccessListener { downloadUri ->
-                        updates["properties/$propId/coverPhotoUrl"] = downloadUri.toString()
-                        qrDone = true
-                        checkDone()
-                    }.addOnFailureListener {
-                        setLoading(false)
-                        Toast.makeText(context, "Failed to get QR URL", Toast.LENGTH_SHORT).show()
-                    }
-                }
-                .addOnFailureListener {
-                    setLoading(false)
-                    Toast.makeText(context, "QR upload failed: ${it.message}", Toast.LENGTH_SHORT).show()
-                }
+            processImageToBase64(selectedQrUri!!, 500) { 
+                if (it != null) updates["properties/$propId/coverPhotoUrl"] = it else hasError = true
+                qDone = true
+                check() 
+            }
+        }
+        if (pDone && qDone) check()
+    }
+
+    private fun processImageToBase64(uri: Uri, maxSide: Int, callback: (String?) -> Unit) {
+        try {
+            val inputStream = requireContext().contentResolver.openInputStream(uri)
+            val original = BitmapFactory.decodeStream(inputStream)
+            inputStream?.close()
+
+            if (original == null) {
+                return callback(null)
+            }
+
+            val width = original.width
+            val height = original.height
+            val ratio = width.toFloat() / height.toFloat()
+            
+            var newWidth = maxSide
+            var newHeight = maxSide
+            
+            if (width > height) {
+                newHeight = (maxSide / ratio).toInt()
+            } else {
+                newWidth = (maxSide * ratio).toInt()
+            }
+
+            val scaled = Bitmap.createScaledBitmap(original, newWidth, newHeight, true)
+            val out = ByteArrayOutputStream()
+            // Increased quality to 80 to prevent white-screen issues
+            scaled.compress(Bitmap.CompressFormat.JPEG, 80, out)
+            val bytes = out.toByteArray()
+            
+            val base64 = "data:image/jpeg;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
+            callback(base64)
+        } catch (e: Exception) {
+            callback(null)
         }
     }
 
-    private fun performLandlordUpdates(updates: Map<String, Any?>) {
+    private fun saveUpdates(uid: String, updates: Map<String, Any?>, isLandlord: Boolean = false) {
         setLoading(true)
-        FirebaseManager.database.reference.updateChildren(updates)
-            .addOnSuccessListener {
-                setLoading(false)
-                Toast.makeText(context, "Profile and Property updated!", Toast.LENGTH_SHORT).show()
-                onUpdateSuccess()
-                dismiss()
-            }
-            .addOnFailureListener {
-                setLoading(false)
-                Toast.makeText(context, "Update failed: ${it.message}", Toast.LENGTH_SHORT).show()
-            }
+        val ref = if (isLandlord) FirebaseManager.database.reference else FirebaseManager.usersRef.child(uid)
+        ref.updateChildren(updates).addOnSuccessListener {
+            setLoading(false)
+            Toast.makeText(context, "Update successful!", Toast.LENGTH_SHORT).show()
+            onUpdateSuccess()
+            dismiss()
+        }.addOnFailureListener { 
+            setLoading(false)
+        }
+    }
+
+    private fun setLoading(load: Boolean) {
+        val pb = if (user.role == "Landlord") _landlordBinding?.progressBar else _tenantBinding?.progressBar
+        val btn = if (user.role == "Landlord") _landlordBinding?.btnSave else _tenantBinding?.btnSave
+        pb?.visibility = if (load) View.VISIBLE else View.GONE
+        btn?.isEnabled = !load
+        isCancelable = !load
     }
 
     override fun onDestroyView() {

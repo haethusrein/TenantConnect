@@ -70,6 +70,7 @@ class RoomSetupDialog(private val invitation: Invitation) : BottomSheetDialogFra
                     contractId = contractId,
                     tenantId = tenantId,
                     landlordId = landlordId,
+                    propertyId = invitation.propertyId,
                     roomId = roomNumber,
                     baseRentAmount = rentAmount,
                     status = "Active"

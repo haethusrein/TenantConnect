@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@color/white">
+
+    <TextView
+        android:id="@+id/tv_dialog_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Payment Breakdown"
+        android:textColor="@color/navy"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tv_billing_period"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:text="Period: 01/01/2026 - 01/31/2026"
+        android:textColor="@color/slate"
+        android:textSize="12sp" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginVertical="15dp"
+        android:background="#EEEEEE" />
+
+    <GridLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:columnCount="2">
+
+        <TextView android:text="Rental:" android:textColor="@color/slate" android:textSize="14sp" />
+        <TextView android:id="@+id/tv_rental_amount" android:layout_gravity="end" android:textColor="@color/navy" android:textSize="14sp" android:textStyle="bold" />
+
+        <View android:layout_width="match_parent" android:layout_height="10dp" android:layout_columnSpan="2" />
+
+        <TextView android:text="Water Bill" android:textColor="@color/slate" android:textSize="14sp" android:textStyle="bold" />
+        <View android:layout_width="0dp" android:layout_height="0dp" />
+
+        <TextView android:text="Usage:" android:textColor="@color/slate" android:textSize="12sp" android:layout_marginStart="10dp" />
+        <TextView android:id="@+id/tv_water_usage" android:layout_gravity="end" android:textColor="@color/slate" android:textSize="12sp" />
+
+        <TextView android:text="Amount:" android:textColor="@color/slate" android:textSize="12sp" android:layout_marginStart="10dp" />
+        <TextView android:id="@+id/tv_water_amount" android:layout_gravity="end" android:textColor="@color/slate" android:textSize="12sp" />
+
+        <View android:layout_width="match_parent" android:layout_height="10dp" android:layout_columnSpan="2" />
+
+        <TextView android:text="Electric Bill" android:textColor="@color/slate" android:textSize="14sp" android:textStyle="bold" />
+        <View android:layout_width="0dp" android:layout_height="0dp" />
+
+        <TextView android:text="Usage:" android:textColor="@color/slate" android:textSize="12sp" android:layout_marginStart="10dp" />
+        <TextView android:id="@+id/tv_electric_usage" android:layout_gravity="end" android:textColor="@color/slate" android:textSize="12sp" />
+
+        <TextView android:text="Amount:" android:textColor="@color/slate" android:textSize="12sp" android:layout_marginStart="10dp" />
+        <TextView android:id="@+id/tv_electric_amount" android:layout_gravity="end" android:textColor="@color/slate" android:textSize="12sp" />
+
+        <View android:layout_width="match_parent" android:layout_height="10dp" android:layout_columnSpan="2" />
+
+        <TextView android:text="Wi-fi Arrears:" android:textColor="@color/slate" android:textSize="14sp" />
+        <TextView android:id="@+id/tv_wifi_amount" android:layout_gravity="end" android:textColor="@color/slate" android:textSize="14sp" />
+
+        <View android:layout_width="match_parent" android:layout_height="15dp" android:layout_columnSpan="2" />
+
+        <TextView android:text="Total Paid:" android:textColor="@color/navy" android:textSize="16sp" android:textStyle="bold" />
+        <TextView android:id="@+id/tv_total_amount" android:layout_gravity="end" android:textColor="@color/navy" android:textSize="16sp" android:textStyle="bold" />
+
+        <TextView android:text="Date Paid:" android:textColor="@color/slate" android:textSize="12sp" />
+        <TextView android:id="@+id/tv_date_paid" android:layout_gravity="end" android:textColor="@color/slate" android:textSize="12sp" />
+    </GridLayout>
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btnClose"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_marginTop="25dp"
+        android:background="@drawable/bg_button"
+        android:backgroundTint="@color/navy"
+        android:text="Close"
+        android:textAllCaps="false"
+        android:textColor="@android:color/white"
+        android:textStyle="bold" />
+
+</LinearLayout>

@@ -87,6 +87,11 @@ class PaymentHistoryTenantActivity : AppCompatActivity() {
         
         val amount = String.format(Locale.US, "₱%.2f", bill.totalAmount ?: 0.0)
         card.findViewById<TextView>(R.id.tv_amount).text = amount
+
+        card.setOnClickListener {
+            val dialog = PaymentBreakdownDialog(bill)
+            dialog.show(supportFragmentManager, "PaymentBreakdownDialog")
+        }
         
         binding.llHistoryContainer.addView(card)
     }

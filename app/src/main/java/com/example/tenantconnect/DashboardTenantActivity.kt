@@ -100,9 +100,23 @@ class DashboardTenantActivity : AppCompatActivity() {
     }
 
     private fun updateDashboardWithContract(contract: Contract) {
-        displayAccommodation(contract.propertyId, contract.roomId)
+        // Fallback: If contract.propertyId is null, try to get it from the current user profile
+        if (contract.propertyId != null) {
+            displayAccommodation(contract.propertyId, contract.roomId)
+            displayRecentAnnouncement(contract.propertyId)
+        } else {
+            // Fetch propertyId from user record if missing in contract
+            val userId = FirebaseManager.auth.currentUser?.uid
+            if (userId != null) {
+                FirebaseManager.usersRef.child(userId).child("propertyId").get().addOnSuccessListener { snapshot ->
+                    val fallbackPropId = snapshot.getValue(String::class.java)
+                    displayAccommodation(fallbackPropId, contract.roomId)
+                    displayRecentAnnouncement(fallbackPropId)
+                }
+            }
+        }
+        
         listenForDashboardBilling(contract.contractId)
-        displayRecentAnnouncement(contract.propertyId)
         
         // Update listeners for "View Details" and "View Payments" to pass current contract info
         binding.btnViewPayments.setOnClickListener {
@@ -243,15 +257,7 @@ class DashboardTenantActivity : AppCompatActivity() {
             val user = snapshot.getValue(User::class.java)
             if (user != null) {
                 binding.tvGreeting.text = "Hello, ${user.firstName}!"
-                user.profilePhotoUrl?.let { uriString ->
-                    binding.ivProfileSmall.load(uriString) {
-                        crossfade(true)
-                        placeholder(R.drawable.ic_person)
-                        error(R.drawable.ic_person)
-                    }
-                } ?: run {
-                    binding.ivProfileSmall.setImageResource(R.drawable.ic_person)
-                }
+                ImageUtils.loadImage(binding.ivProfileSmall, user.profilePhotoUrl)
             }
         }.addOnFailureListener {
             Toast.makeText(this, "Error loading data: ${it.message}", Toast.LENGTH_SHORT).show()

@@ -112,6 +112,10 @@ class PaymentTenantActivity : AppCompatActivity() {
                             setTextColor(Color.WHITE)
                             textSize = 12f
                             setPadding(0, 0, 0, 10)
+                            setOnClickListener {
+                                val dialog = PaymentBreakdownDialog(bill)
+                                dialog.show(supportFragmentManager, "PaymentBreakdownDialog")
+                            }
                         }
                         binding.llHistoryPreview.addView(historyTv)
                     }

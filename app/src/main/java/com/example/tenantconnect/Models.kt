@@ -108,6 +108,7 @@ data class Invitation(
     val invitationId: String? = null,
     val tenantId: String? = null,
     val landlordId: String? = null,
+    val propertyId: String? = null, // Added
     val landlordName: String? = null,
     val propertyName: String? = null,
     val status: String? = "Pending", // Pending, Accepted, Declined

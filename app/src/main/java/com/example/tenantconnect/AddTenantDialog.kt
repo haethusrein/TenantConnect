@@ -115,6 +115,7 @@ class AddTenantDialog : BottomSheetDialogFragment() {
                     invitationId = invitationId,
                     tenantId = tenantUid,
                     landlordId = currentLandlordId,
+                    propertyId = property.propertyId,
                     landlordName = "${landlord?.firstName} ${landlord?.lastName}",
                     propertyName = property.propertyName ?: "Your Property"
                 )

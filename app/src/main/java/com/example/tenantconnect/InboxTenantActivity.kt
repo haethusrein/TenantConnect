@@ -74,33 +74,38 @@ class InboxTenantActivity : AppCompatActivity() {
     }
 
     private fun verifyContractAndSetupChat(currentUserId: String, partnerId: String) {
-        // Query contracts where current user is either tenant or landlord and partner is the other party
-        FirebaseManager.contractsRef.orderByChild("status").equalTo("Active").get()
-            .addOnSuccessListener { snapshot ->
-                val contract = snapshot.children.mapNotNull { it.getValue(Contract::class.java) }
-                    .firstOrNull { 
-                        (it.tenantId == currentUserId && it.landlordId == partnerId) ||
-                        (it.tenantId == partnerId && it.landlordId == currentUserId)
-                    }
+        // Optimized Query: Search only through THIS user's contracts
+        val query = if (isLandlordMode) {
+            FirebaseManager.contractsRef.orderByChild("landlordId").equalTo(currentUserId)
+        } else {
+            FirebaseManager.contractsRef.orderByChild("tenantId").equalTo(currentUserId)
+        }
 
-                if (contract != null) {
-                    activeContractId = contract.contractId
-                    
-                    // Create unique chatId including contractId to prevent merging histories of different leases
-                    val ids = listOf(currentUserId, partnerId).sorted()
-                    chatId = "${ids[0]}_${ids[1]}_$activeContractId"
-                    
-                    setupRecyclerView(currentUserId)
-                    setupMessaging()
-                } else {
-                    Toast.makeText(this, "Unauthorized: No active lease found", Toast.LENGTH_LONG).show()
-                    finish()
+        query.get().addOnSuccessListener { snapshot ->
+            val contract = snapshot.children.mapNotNull { it.getValue(Contract::class.java) }
+                .firstOrNull { 
+                    it.status == "Active" && 
+                    (if (isLandlordMode) it.tenantId == partnerId else it.landlordId == partnerId)
                 }
-            }
-            .addOnFailureListener {
-                Toast.makeText(this, "Verification failed: ${it.message}", Toast.LENGTH_SHORT).show()
+
+            if (contract != null) {
+                activeContractId = contract.contractId
+                
+                // Create unique chatId including contractId to prevent merging histories of different leases
+                val ids = listOf(currentUserId, partnerId).sorted()
+                chatId = "${ids[0]}_${ids[1]}_$activeContractId"
+                
+                setupRecyclerView(currentUserId)
+                setupMessaging()
+            } else {
+                Toast.makeText(this, "Unauthorized: No active lease found", Toast.LENGTH_LONG).show()
                 finish()
             }
+        }
+        .addOnFailureListener {
+            Toast.makeText(this, "Verification failed: ${it.message}", Toast.LENGTH_SHORT).show()
+            finish()
+        }
     }
 
     private fun setupRecyclerView(currentUserId: String) {

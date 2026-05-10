@@ -99,6 +99,26 @@
             android:textColor="@color/slate"
             android:inputType="numberDecimal" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="15dp"
+            android:text="Due Date"
+            android:textColor="@color/slate"
+            android:textStyle="bold" />
+        <EditText
+            android:id="@+id/et_due_date"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:layout_marginTop="5dp"
+            android:background="@drawable/bg_input_field"
+            android:paddingHorizontal="10dp"
+            android:hint="Select due date"
+            android:textColor="@color/slate"
+            android:focusable="false"
+            android:clickable="true"
+            android:inputType="none" />
+
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"

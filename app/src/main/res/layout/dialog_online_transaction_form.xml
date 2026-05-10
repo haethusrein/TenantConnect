@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_card_outline"
+    android:backgroundTint="@color/white"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Payment Details"
+        android:textColor="@color/navy"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <EditText
+        android:id="@+id/et_transaction_id"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_marginTop="20dp"
+        android:background="@drawable/bg_input_field"
+        android:hint="Transaction ID"
+        android:paddingHorizontal="10dp"
+        android:textColor="@color/slate"
+        android:inputType="text" />
+
+    <EditText
+        android:id="@+id/et_gcash_info"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/bg_input_field"
+        android:hint="GCash Name/Number"
+        android:paddingHorizontal="10dp"
+        android:textColor="@color/slate"
+        android:inputType="text" />
+
+    <EditText
+        android:id="@+id/et_amount_to_pay"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/bg_input_field"
+        android:hint="Amount Paid"
+        android:inputType="numberDecimal"
+        android:paddingHorizontal="10dp"
+        android:textColor="@color/slate" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btn_submit_transaction"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_marginTop="24dp"
+        android:background="@drawable/bg_button"
+        android:backgroundTint="@color/navy"
+        android:text="Submit Transaction"
+        android:textAllCaps="false"
+        android:textColor="@color/white"
+        android:textStyle="bold" />
+
+</LinearLayout>

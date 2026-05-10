@@ -11,6 +11,7 @@ import android.widget.ArrayAdapter
 import android.widget.ListPopupWindow
 import android.widget.TextView
 import android.widget.Toast
+import coil.load
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.toColorInt
@@ -25,6 +26,7 @@ class DashboardTenantActivity : AppCompatActivity() {
     private lateinit var binding: ActivityDashboardTenantBinding
     private var invitationListener: ValueEventListener? = null
     private var contractListener: ValueEventListener? = null
+    private var billingListener: ValueEventListener? = null
     private var isDialogShowing = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,7 +52,6 @@ class DashboardTenantActivity : AppCompatActivity() {
     }
 
     private fun listenForContractChanges(userId: String) {
-        // Targeted Query: Listen for the tenant's active contract in real-time
         contractListener = FirebaseManager.contractsRef.orderByChild("tenantId").equalTo(userId)
             .addValueEventListener(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
@@ -61,22 +62,55 @@ class DashboardTenantActivity : AppCompatActivity() {
                     }?.getValue(Contract::class.java)
 
                     if (activeContract != null) {
-                        // Switch UI to active state immediately
                         binding.mainContentLayout.isVisible = true
                         binding.layoutEmpty.root.isVisible = false
                         
                         displayAccommodation(activeContract.propertyId, activeContract.roomId)
-                        displayLatestPayment(activeContract.contractId)
+                        listenForDashboardBilling(activeContract.contractId)
                         displayRecentAnnouncement(activeContract.propertyId)
                     } else {
-                        // Show empty state if no active contract found
                         showNoAccommodationState()
                     }
                 }
 
-                override fun onCancelled(error: DatabaseError) {
-                    // Log error if needed
+                override fun onCancelled(error: DatabaseError) {}
+            })
+    }
+
+    private fun listenForDashboardBilling(contractId: String?) {
+        if (contractId == null) return
+        
+        billingListener?.let { FirebaseManager.billingsRef.removeEventListener(it) }
+        
+        billingListener = FirebaseManager.billingsRef.orderByChild("contractId").equalTo(contractId)
+            .addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (isFinishing || isDestroyed) return
+                    
+                    val latestUnpaidBilling = snapshot.children.mapNotNull { it.getValue(Billing::class.java) }
+                        .filter { it.status != "Paid" }
+                        .maxByOrNull { it.dueDate ?: "" }
+
+                    if (latestUnpaidBilling != null) {
+                        binding.tvPaymentLabel.isVisible = true
+                        binding.tvPaymentDueDate.isVisible = true
+                        
+                        val safeAmount = latestUnpaidBilling.totalAmount ?: 0.0
+                        binding.tvPaymentAmount.text = String.format(Locale.US, "₱%.2f", safeAmount)
+                        
+                        binding.tvPaymentDueDate.text = "Due: ${latestUnpaidBilling.dueDate}"
+                        binding.tvPaymentAmount.textSize = 24f
+                        binding.tvPaymentAmount.setPadding(0, 0, 0, 0)
+                    } else {
+                        binding.tvPaymentLabel.isVisible = true
+                        binding.tvPaymentDueDate.isVisible = true
+                        binding.tvPaymentAmount.text = "₱0.00"
+                        binding.tvPaymentDueDate.text = "No pending payments"
+                        binding.tvPaymentAmount.textSize = 24f
+                    }
                 }
+
+                override fun onCancelled(error: DatabaseError) {}
             })
     }
 
@@ -90,14 +124,12 @@ class DashboardTenantActivity : AppCompatActivity() {
                         val invitation = invitationSnapshot.getValue(Invitation::class.java)
                         if (invitation != null && (invitation.status == "Pending")) {
                             showInvitationDialog(invitation)
-                            break // Show one at a time
+                            break
                         }
                     }
                 }
 
-                override fun onCancelled(error: DatabaseError) {
-                    // Log or handle error
-                }
+                override fun onCancelled(error: DatabaseError) {}
             })
     }
 
@@ -119,7 +151,6 @@ class DashboardTenantActivity : AppCompatActivity() {
     }
 
     private fun acceptInvitation(invitation: Invitation) {
-        // Show dialog to fill room details
         val roomDialog = RoomSetupDialog(invitation)
         roomDialog.show(supportFragmentManager, "RoomSetupDialog")
     }
@@ -132,12 +163,25 @@ class DashboardTenantActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        invitationListener?.let {
-            FirebaseManager.invitationsRef.removeEventListener(it)
-        }
-        contractListener?.let {
-            FirebaseManager.contractsRef.removeEventListener(it)
-        }
+        invitationListener?.let { FirebaseManager.invitationsRef.removeEventListener(it) }
+        contractListener?.let { FirebaseManager.contractsRef.removeEventListener(it) }
+        billingListener?.let { FirebaseManager.billingsRef.removeEventListener(it) }
+    }
+
+    private fun logout() {
+        invitationListener?.let { FirebaseManager.invitationsRef.removeEventListener(it) }
+        contractListener?.let { FirebaseManager.contractsRef.removeEventListener(it) }
+        billingListener?.let { FirebaseManager.billingsRef.removeEventListener(it) }
+        
+        invitationListener = null
+        contractListener = null
+        billingListener = null
+
+        FirebaseManager.auth.signOut()
+        val intent = Intent(this, LoginActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finishAffinity()
     }
 
     private fun setupDashboardButtons() {
@@ -145,7 +189,7 @@ class DashboardTenantActivity : AppCompatActivity() {
             startActivity(Intent(this, AnnouncementsTenantActivity::class.java))
         }
         binding.btnViewPayments.setOnClickListener {
-            startActivity(Intent(this, PaymentHistoryTenantActivity::class.java))
+            startActivity(Intent(this, PaymentTenantActivity::class.java))
         }
         binding.btnViewDetails.setOnClickListener {
             startActivity(Intent(this, ViewContractActivity::class.java))
@@ -159,14 +203,15 @@ class DashboardTenantActivity : AppCompatActivity() {
             val user = snapshot.getValue(User::class.java)
             if (user != null) {
                 binding.tvGreeting.text = "Hello, ${user.firstName}!"
-                
                 user.profilePhotoUrl?.let { uriString ->
-                    binding.ivProfileSmall.setImageURI(Uri.parse(uriString))
+                    binding.ivProfileSmall.load(uriString) {
+                        crossfade(true)
+                        placeholder(R.drawable.ic_person)
+                        error(R.drawable.ic_person)
+                    }
                 } ?: run {
                     binding.ivProfileSmall.setImageResource(R.drawable.ic_person)
                 }
-
-                // Contract and property data now handled by listenForContractChanges
             }
         }.addOnFailureListener {
             Toast.makeText(this, "Error loading data: ${it.message}", Toast.LENGTH_SHORT).show()
@@ -181,34 +226,11 @@ class DashboardTenantActivity : AppCompatActivity() {
             if (property != null) {
                 binding.tvAccommodationLabel.isVisible = true
                 binding.tvAccommodationAddress.isVisible = true
-                
                 val displayText = if (roomId != null) "${property.propertyName}, $roomId" else property.propertyName
                 binding.tvAccommodation.text = displayText
                 binding.tvAccommodationAddress.text = property.address
             }
         }
-    }
-
-    private fun displayLatestPayment(contractId: String?) {
-        if (contractId == null) return
-        FirebaseManager.billingsRef.orderByChild("contractId").equalTo(contractId).limitToLast(1).get()
-            .addOnSuccessListener { snapshot ->
-                if (isFinishing || isDestroyed) return@addOnSuccessListener
-                val billing = snapshot.children.firstOrNull()?.getValue(Billing::class.java)
-                if (billing != null) {
-                    binding.tvPaymentLabel.isVisible = true
-                    binding.tvPaymentDueDate.isVisible = true
-                    
-                    val safeAmount = billing.totalAmount ?: 0.0
-                    binding.tvPaymentAmount.text = "₱${String.format(Locale.US, "%.2f", safeAmount)}"
-                    
-                    binding.tvPaymentDueDate.text = "Due: ${billing.dueDate}"
-                    binding.tvPaymentAmount.textSize = 24f
-                    binding.tvPaymentAmount.setPadding(0, 0, 0, 0)
-                } else {
-                    binding.tvPaymentAmount.text = "No pending bills"
-                }
-            }
     }
 
     private fun displayRecentAnnouncement(propertyId: String?) {
@@ -230,30 +252,11 @@ class DashboardTenantActivity : AppCompatActivity() {
         binding.layoutEmpty.root.isVisible = true
     }
 
-    private fun logout() {
-        // 1. Remove all active listeners to prevent "Permission Denied" errors
-        invitationListener?.let { FirebaseManager.invitationsRef.removeEventListener(it) }
-        contractListener?.let { FirebaseManager.contractsRef.removeEventListener(it) }
-        invitationListener = null
-        contractListener = null
-
-        // 2. Perform sign out
-        FirebaseManager.auth.signOut()
-
-        // 3. Redirect to login
-        val intent = Intent(this, LoginActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        startActivity(intent)
-        finishAffinity()
-    }
-
     private fun setupMenu() {
         binding.ivMenu.setOnClickListener { view ->
             val menuItems = arrayOf("Announcements", "Settings", "Log out")
-            
             val popup = ListPopupWindow(this)
             popup.anchorView = view
-            
             val adapter = object : ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, menuItems) {
                 override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                     val view = super.getView(position, convertView, parent) as TextView
@@ -263,11 +266,9 @@ class DashboardTenantActivity : AppCompatActivity() {
                     return view
                 }
             }
-            
             popup.setAdapter(adapter)
             popup.width = 600 
             popup.setBackgroundDrawable(ColorDrawable("#22223B".toColorInt()))
-            
             popup.setOnItemClickListener { _, _, position, _ ->
                 when (menuItems[position]) {
                     "Announcements" -> startActivity(Intent(this, AnnouncementsTenantActivity::class.java))
@@ -284,23 +285,15 @@ class DashboardTenantActivity : AppCompatActivity() {
     }
 
     private fun setupBottomNavigation() {
-        binding.bottomNav.navHome.setOnClickListener {
-            // Already here
-        }
-
+        binding.bottomNav.navHome.setOnClickListener { /* Already here */ }
         binding.bottomNav.navNotifications.setOnClickListener {
-            val intent = Intent(this, InboxTenantActivity::class.java)
-            startActivity(intent)
+            startActivity(Intent(this, InboxTenantActivity::class.java))
         }
-
         binding.bottomNav.navPayments.setOnClickListener {
-            val intent = Intent(this, PaymentHistoryTenantActivity::class.java)
-            startActivity(intent)
+            startActivity(Intent(this, PaymentTenantActivity::class.java))
         }
-
         binding.bottomNav.navProfile.setOnClickListener {
-            val intent = Intent(this, ProfileTenantActivity::class.java)
-            startActivity(intent)
+            startActivity(Intent(this, ProfileTenantActivity::class.java))
         }
     }
 }

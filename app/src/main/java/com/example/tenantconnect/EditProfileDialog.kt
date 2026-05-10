@@ -1,11 +1,14 @@
 package com.example.tenantconnect
 
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import coil.load
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.example.tenantconnect.databinding.DialogEditProfileTenantBinding
@@ -21,14 +24,25 @@ class EditProfileDialog(
     private var _landlordBinding: DialogEditProfileLandlordBinding? = null
     private var selectedImageUri: Uri? = null
 
-    private val selectImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    private val selectImageLauncher = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let {
             selectedImageUri = it
-            // Dynamic Update: Show preview immediately in the dialog
+            
+            // 1. Request persistent permission so it's accessible later
+            try {
+                val contentResolver = requireContext().contentResolver
+                val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                contentResolver.takePersistableUriPermission(it, takeFlags)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            // 2. Dynamic Update: Show preview immediately in the dialog using Coil
             if (user.role == "Landlord") {
-                _landlordBinding?.ivProfilePreview?.setImageURI(it)
+                _landlordBinding?.ivProfilePreview?.load(it)
             } else {
-                _tenantBinding?.ivProfilePreview?.setImageURI(it)
+                _tenantBinding?.ivProfilePreview?.load(it)
             }
         }
     }
@@ -65,11 +79,13 @@ class EditProfileDialog(
         
         // Initial display of existing photo
         user.profilePhotoUrl?.let { uriString ->
-            b.ivProfilePreview.setImageURI(Uri.parse(uriString))
+            b.ivProfilePreview.load(uriString) {
+                crossfade(true)
+            }
         }
 
         b.btnChangePhoto.setOnClickListener {
-            selectImageLauncher.launch("image/*")
+            selectImageLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         }
 
         b.btnSave.setOnClickListener {
@@ -111,11 +127,13 @@ class EditProfileDialog(
         
         // Initial display of existing photo
         user.profilePhotoUrl?.let { uriString ->
-            b.ivProfilePreview.setImageURI(Uri.parse(uriString))
+            b.ivProfilePreview.load(uriString) {
+                crossfade(true)
+            }
         }
 
         b.btnChangePhoto.setOnClickListener {
-            selectImageLauncher.launch("image/*")
+            selectImageLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         }
         
         // Populate Property Info

@@ -10,6 +10,7 @@ import android.widget.ArrayAdapter
 import android.widget.ListPopupWindow
 import android.widget.TextView
 import android.widget.Toast
+import coil.load
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.toColorInt
 import com.example.tenantconnect.databinding.ActivityProfileTenantBinding
@@ -63,7 +64,11 @@ class ProfileTenantActivity : AppCompatActivity() {
                 binding.tvOccupation.text = "Occupation: ${user.occupation ?: "N/A"}"
                 
                 user.profilePhotoUrl?.let { uriString ->
-                    binding.ivPhoto.setImageURI(Uri.parse(uriString))
+                    binding.ivPhoto.load(uriString) {
+                        crossfade(true)
+                        placeholder(R.drawable.ic_person)
+                        error(R.drawable.ic_person)
+                    }
                 } ?: run {
                     binding.ivPhoto.setImageResource(R.drawable.ic_person)
                 }

@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
+import coil.load
 import com.example.tenantconnect.databinding.ItemTenantBinding
 
 class TenantAdapter(
@@ -28,7 +29,11 @@ class TenantAdapter(
         
         // Load photo or show initial fallback
         tenant.profilePhotoUrl?.let { uriString ->
-            holder.binding.ivTenantPhoto.setImageURI(Uri.parse(uriString))
+            holder.binding.ivTenantPhoto.load(uriString) {
+                crossfade(true)
+                placeholder(null) // Or a default placeholder
+                error(null) // Or a default error image
+            }
             holder.binding.ivTenantPhoto.isVisible = true
             holder.binding.tvTenantAvatar.isVisible = false
         } ?: run {

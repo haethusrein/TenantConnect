@@ -13,6 +13,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.toColorInt
+import coil.load
 import com.example.tenantconnect.databinding.ActivityDashboardLandlordBinding
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -102,7 +103,11 @@ class DashboardLandlordActivity : AppCompatActivity() {
                 binding.tvGreeting.text = "Welcome, ${user.firstName}!"
                 
                 user.profilePhotoUrl?.let { uriString ->
-                    binding.ivProfileSmall.setImageURI(Uri.parse(uriString))
+                    binding.ivProfileSmall.load(uriString) {
+                        crossfade(true)
+                        placeholder(R.drawable.ic_person)
+                        error(R.drawable.ic_person)
+                    }
                 } ?: run {
                     binding.ivProfileSmall.setImageResource(R.drawable.ic_person)
                 }

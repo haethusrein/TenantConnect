@@ -3,7 +3,7 @@ package com.example.tenantconnect
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.core.net.toUri
+import coil.load
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
 import com.example.tenantconnect.databinding.ItemTenantBillingBinding
@@ -39,7 +39,9 @@ class TenantBillingAdapter(
         
         // Avatar
         tenant.profilePhotoUrl?.let {
-            holder.binding.ivTenantPhoto.setImageURI(it.toUri())
+            holder.binding.ivTenantPhoto.load(it) {
+                crossfade(true)
+            }
             holder.binding.ivTenantPhoto.isVisible = true
             holder.binding.tvAvatar.isVisible = false
         } ?: run {

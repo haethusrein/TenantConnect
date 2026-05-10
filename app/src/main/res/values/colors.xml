@@ -10,6 +10,7 @@
     <color name="card_bg_light">#5C6285</color>
 
     <color name="status_active">#4CAF50</color>
+    <color name="status_paid">#4CAF50</color>
     <color name="status_unpaid">#D32F2F</color>
     <color name="status_overdue">#F57C00</color>
     <color name="status_vacant">#1A237E</color>

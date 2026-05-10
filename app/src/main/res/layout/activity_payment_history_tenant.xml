@@ -36,12 +36,16 @@
     <!-- Sub Header (Payment History) -->
     <LinearLayout
         android:id="@+id/sub_header"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="50dp"
+        android:layout_marginHorizontal="25dp"
+        android:layout_marginTop="10dp"
         android:background="@drawable/bg_button"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:paddingHorizontal="20dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/top_bar">
 
         <ImageView
@@ -51,7 +55,8 @@
             android:background="@drawable/bg_status_badge"
             android:backgroundTint="#9A8C98"
             android:padding="5dp"
-            android:src="@drawable/ic_back" />
+            android:src="@drawable/ic_back"
+            android:contentDescription="Back" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -64,6 +69,7 @@
     </LinearLayout>
 
     <ScrollView
+        android:id="@+id/scroll_view"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         app:layout_constraintBottom_toTopOf="@id/bottom_nav"
@@ -76,82 +82,12 @@
             android:orientation="vertical"
             android:padding="20dp">
 
-            <!-- History Item 1 -->
+            <!-- History items will be added here dynamically -->
             <androidx.cardview.widget.CardView
                 android:id="@+id/cv_history_item1"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="15dp"
-                app:cardBackgroundColor="@color/card_bg"
-                app:cardCornerRadius="25dp">
-                <RelativeLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:padding="15dp">
-                    <TextView
-                        android:id="@+id/num1"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="1"
-                        android:textColor="@color/white"
-                        android:textSize="36sp"
-                        android:textStyle="bold" />
-
-                    <GridLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_toEndOf="@id/num1"
-                        android:layout_marginStart="15dp"
-                        android:columnCount="2">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Date of Transaction:"
-                            android:textColor="@color/white"
-                            android:textSize="10sp" />
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_gravity="end"
-                            android:text="05/02/2026"
-                            android:textColor="@color/white"
-                            android:textSize="10sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Dues:"
-                            android:textColor="@color/white"
-                            android:textSize="10sp" />
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_gravity="end"
-                            android:text="P8,908.66"
-                            android:textColor="@color/white"
-                            android:textSize="10sp"
-                            android:textStyle="bold" />
-                    </GridLayout>
-
-                    <TextView
-                        android:layout_width="80dp"
-                        android:layout_height="25dp"
-                        android:layout_alignParentEnd="true"
-                        android:layout_below="@id/num1"
-                        android:layout_marginTop="10dp"
-                        android:background="@drawable/bg_status_badge"
-                        android:backgroundTint="@color/status_unpaid"
-                        android:gravity="center"
-                        android:text="UNPAID"
-                        android:textColor="@color/white"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
-                </RelativeLayout>
-            </androidx.cardview.widget.CardView>
-
-            <!-- More history items... -->
+                android:visibility="gone" />
 
         </LinearLayout>
     </ScrollView>

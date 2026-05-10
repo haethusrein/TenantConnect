@@ -38,16 +38,11 @@ class TenantBillingAdapter(
         holder.binding.tvNameRoom.text = "${tenant.firstName} ${tenant.lastName} • ${contract.roomId}"
         
         // Avatar
-        tenant.profilePhotoUrl?.let {
-            holder.binding.ivTenantPhoto.load(it) {
-                crossfade(true)
-            }
-            holder.binding.ivTenantPhoto.isVisible = true
-            holder.binding.tvAvatar.isVisible = false
-        } ?: run {
+        ImageUtils.loadImage(holder.binding.ivTenantPhoto, tenant.profilePhotoUrl)
+        holder.binding.ivTenantPhoto.isVisible = !tenant.profilePhotoUrl.isNullOrEmpty()
+        holder.binding.tvAvatar.isVisible = tenant.profilePhotoUrl.isNullOrEmpty()
+        if (holder.binding.tvAvatar.isVisible) {
             holder.binding.tvAvatar.text = tenant.firstName?.take(1) ?: "T"
-            holder.binding.ivTenantPhoto.isVisible = false
-            holder.binding.tvAvatar.isVisible = true
         }
 
         // 2. Billing Status Logic

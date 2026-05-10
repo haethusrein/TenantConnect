@@ -28,18 +28,9 @@ class TenantAdapter(
         holder.binding.tvTenantAvatar.text = tenant.firstName?.take(1) ?: "T"
         
         // Load photo or show initial fallback
-        tenant.profilePhotoUrl?.let { uriString ->
-            holder.binding.ivTenantPhoto.load(uriString) {
-                crossfade(true)
-                placeholder(null) // Or a default placeholder
-                error(null) // Or a default error image
-            }
-            holder.binding.ivTenantPhoto.isVisible = true
-            holder.binding.tvTenantAvatar.isVisible = false
-        } ?: run {
-            holder.binding.ivTenantPhoto.isVisible = false
-            holder.binding.tvTenantAvatar.isVisible = true
-        }
+        ImageUtils.loadImage(holder.binding.ivTenantPhoto, tenant.profilePhotoUrl)
+        holder.binding.ivTenantPhoto.isVisible = !tenant.profilePhotoUrl.isNullOrEmpty()
+        holder.binding.tvTenantAvatar.isVisible = tenant.profilePhotoUrl.isNullOrEmpty()
 
         holder.binding.btnEditTenant.setOnClickListener {
             onEditClick(tenant)

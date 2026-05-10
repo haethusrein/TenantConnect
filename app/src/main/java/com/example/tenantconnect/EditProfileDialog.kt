@@ -83,7 +83,7 @@ class EditProfileDialog(
             )
 
             if (selectedImageUri != null) {
-                processImageToBase64(selectedImageUri!!, 300) { base64 ->
+                processImageToBase64(selectedImageUri!!, 400) { base64 ->
                     if (base64 != null) {
                         updates["profilePhotoUrl"] = base64
                     }
@@ -144,14 +144,14 @@ class EditProfileDialog(
         }
 
         if (selectedImageUri != null) {
-            processImageToBase64(selectedImageUri!!, 300) { 
+            processImageToBase64(selectedImageUri!!, 400) { 
                 if (it != null) updates["users/$uid/profilePhotoUrl"] = it else hasError = true
                 pDone = true
                 check() 
             }
         }
         if (selectedQrUri != null) {
-            processImageToBase64(selectedQrUri!!, 500) { 
+            processImageToBase64(selectedQrUri!!, 600) { 
                 if (it != null) updates["properties/$propId/coverPhotoUrl"] = it else hasError = true
                 qDone = true
                 check() 
@@ -170,23 +170,25 @@ class EditProfileDialog(
                 return callback(null)
             }
 
-            val width = original.width
-            val height = original.height
-            val ratio = width.toFloat() / height.toFloat()
+            // Maintain aspect ratio while ensuring it's not too large
+            var width = original.width
+            var height = original.height
             
-            var newWidth = maxSide
-            var newHeight = maxSide
-            
-            if (width > height) {
-                newHeight = (maxSide / ratio).toInt()
-            } else {
-                newWidth = (maxSide * ratio).toInt()
+            if (width > maxSide || height > maxSide) {
+                val ratio = width.toFloat() / height.toFloat()
+                if (width > height) {
+                    width = maxSide
+                    height = (maxSide / ratio).toInt()
+                } else {
+                    height = maxSide
+                    width = (maxSide * ratio).toInt()
+                }
             }
 
-            val scaled = Bitmap.createScaledBitmap(original, newWidth, newHeight, true)
+            val scaled = Bitmap.createScaledBitmap(original, width, height, true)
             val out = ByteArrayOutputStream()
-            // Increased quality to 80 to prevent white-screen issues
-            scaled.compress(Bitmap.CompressFormat.JPEG, 80, out)
+            // High quality for profile photos, lower for QR
+            scaled.compress(Bitmap.CompressFormat.JPEG, 85, out)
             val bytes = out.toByteArray()
             
             val base64 = "data:image/jpeg;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
@@ -206,6 +208,7 @@ class EditProfileDialog(
             dismiss()
         }.addOnFailureListener { 
             setLoading(false)
+            Toast.makeText(context, "Error: ${it.message}", Toast.LENGTH_SHORT).show()
         }
     }
 

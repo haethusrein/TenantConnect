@@ -6,23 +6,28 @@ import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.ListPopupWindow
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import coil.load
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.toColorInt
+import androidx.core.view.isVisible
 import com.example.tenantconnect.databinding.ActivityProfileTenantBinding
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.ValueEventListener
 import java.util.Locale
-
-import android.net.Uri
-import androidx.core.graphics.toColorInt
 
 class ProfileTenantActivity : AppCompatActivity() {
     private lateinit var binding: ActivityProfileTenantBinding
     private var currentUser: User? = null
     private var currentProperty: Property? = null
+    private var activeContracts = mutableListOf<Contract>()
+    private var contractsListener: ValueEventListener? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,40 +54,34 @@ class ProfileTenantActivity : AppCompatActivity() {
     }
 
     private fun loadUserProfile(userId: String) {
-        FirebaseManager.usersRef.child(userId).get().addOnSuccessListener { snapshot ->
-            if (isFinishing || isDestroyed) return@addOnSuccessListener
-            
-            val user = snapshot.getValue(User::class.java)
-            if (user != null) {
-                currentUser = user
-                binding.tvProfileName.text = "Name: ${user.firstName} ${user.middleName ?: ""} ${user.lastName}"
-                binding.tvProfileRole.text = "Role: ${user.role}"
-                binding.tvProfileSex.text = "Sex: ${user.gender}"
-                binding.tvBirthDate.text = "Birth Date: ${user.birthDate ?: "N/A"}"
-                binding.tvOriginalAddress.text = "Original Address: ${user.originalAddress ?: "N/A"}"
-                binding.tvCivilStatus.text = "Civil Status: ${user.civilStatus ?: "N/A"}"
-                binding.tvOccupation.text = "Occupation: ${user.occupation ?: "N/A"}"
+        FirebaseManager.usersRef.child(userId).addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                if (isFinishing || isDestroyed) return
                 
-                user.profilePhotoUrl?.let { uriString ->
-                    binding.ivPhoto.load(uriString) {
-                        crossfade(true)
-                        placeholder(R.drawable.ic_person)
-                        error(R.drawable.ic_person)
+                val user = snapshot.getValue(User::class.java)
+                if (user != null) {
+                    currentUser = user
+                    binding.tvProfileName.text = "Name: ${user.firstName} ${user.middleName ?: ""} ${user.lastName}"
+                    binding.tvProfileRole.text = "Role: ${user.role}"
+                    binding.tvProfileSex.text = "Sex: ${user.gender}"
+                    binding.tvBirthDate.text = "Birth Date: ${user.birthDate ?: "N/A"}"
+                    binding.tvOriginalAddress.text = "Original Address: ${user.originalAddress ?: "N/A"}"
+                    binding.tvCivilStatus.text = "Civil Status: ${user.civilStatus ?: "N/A"}"
+                    binding.tvOccupation.text = "Occupation: ${user.occupation ?: "N/A"}"
+                    
+                    ImageUtils.loadImage(binding.ivPhoto, user.profilePhotoUrl)
+                    
+                    if (user.role == "Landlord") {
+                        setupLandlordProfile(user)
+                    } else {
+                        setupTenantProfile(userId)
                     }
-                } ?: run {
-                    binding.ivPhoto.setImageResource(R.drawable.ic_person)
+                    setupMenu() // Refresh menu role logic
                 }
-                
-                if (user.role == "Landlord") {
-                    setupLandlordProfile(user)
-                } else {
-                    setupTenantProfile(userId)
-                }
-                setupMenu() // Refresh menu role logic
             }
-        }.addOnFailureListener {
-            Toast.makeText(this, "Error loading profile", Toast.LENGTH_SHORT).show()
-        }
+
+            override fun onCancelled(error: DatabaseError) {}
+        })
     }
 
     private fun setupLandlordProfile(user: User) {
@@ -114,43 +113,101 @@ class ProfileTenantActivity : AppCompatActivity() {
         binding.tvContractType.visibility = View.VISIBLE
         binding.tvBaseRate.visibility = View.VISIBLE
         binding.tvExtraInfo.visibility = View.GONE
-        fetchContractAndProperty(userId)
+        listenForContracts(userId)
     }
 
-    private fun fetchContractAndProperty(userId: String) {
-        FirebaseManager.contractsRef.orderByChild("tenantId").equalTo(userId).get()
-            .addOnSuccessListener { snapshot ->
-                if (isFinishing || isDestroyed) return@addOnSuccessListener
-                
-                val contract = snapshot.children.firstOrNull { 
-                    it.child("status").getValue(String::class.java) == "Active" 
-                }?.getValue(Contract::class.java)
-
-                if (contract != null) {
-                    binding.tvContractType.text = "Contract: ${contract.renewalTerm ?: "N/A"}"
-                    binding.tvBaseRate.text = "Base rate: ₱${String.format(Locale.US, "%.2f", contract.baseRentAmount)}"
+    private fun listenForContracts(userId: String) {
+        contractsListener?.let { FirebaseManager.contractsRef.removeEventListener(it) }
+        
+        contractsListener = FirebaseManager.contractsRef.orderByChild("tenantId").equalTo(userId)
+            .addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (isFinishing || isDestroyed) return
                     
-                    fetchPropertyAndRoomDetails(contract.propertyId, contract.roomId)
-                } else {
-                    binding.tvResidence.text = "Residence: None"
-                    binding.tvLeaseAddress.text = "Address: None"
-                    binding.tvContractType.text = "Contract: None"
-                    binding.tvBaseRate.text = "Base rate: None"
+                    activeContracts = snapshot.children.mapNotNull { it.getValue(Contract::class.java) }
+                        .filter { it.status == "Active" }.toMutableList()
+
+                    if (activeContracts.isNotEmpty()) {
+                        setupContractSpinner()
+                        // Initial update with the first contract or previously selected one
+                        val selectedPos = if (binding.spinnerContracts.isVisible) {
+                            binding.spinnerContracts.selectedItemPosition.coerceIn(0, activeContracts.size - 1)
+                        } else 0
+                        updateLeaseUI(activeContracts[selectedPos])
+                    } else {
+                        binding.spinnerContracts.isVisible = false
+                        showNoLeaseState()
+                    }
                 }
-            }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Toast.makeText(this@ProfileTenantActivity, "Error loading contracts", Toast.LENGTH_SHORT).show()
+                }
+            })
     }
 
-    private fun fetchPropertyAndRoomDetails(propertyId: String?, roomId: String?) {
-        if (propertyId == null) return
+    private fun setupContractSpinner() {
+        if (activeContracts.size > 1) {
+            binding.spinnerContracts.isVisible = true
+            val contractNames = activeContracts.map { "Unit ${it.roomId}" }
+            val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, contractNames)
+            binding.spinnerContracts.adapter = adapter
+            
+            binding.spinnerContracts.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    updateLeaseUI(activeContracts[position])
+                }
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        } else {
+            binding.spinnerContracts.isVisible = false
+        }
+    }
+
+    private fun updateLeaseUI(contract: Contract) {
+        binding.tvContractType.text = "Contract: ${contract.renewalTerm ?: "N/A"}"
+        binding.tvBaseRate.text = "Base rate: ₱${String.format(Locale.US, "%.2f", contract.baseRentAmount)}"
+        
+        // Fallback for missing propertyId
+        val propId = contract.propertyId
+        if (propId != null) {
+            fetchPropertyDetails(propId, contract.roomId)
+        } else {
+            FirebaseManager.usersRef.child(contract.tenantId ?: "").child("propertyId").get().addOnSuccessListener { snapshot ->
+                val fallbackPropId = snapshot.getValue(String::class.java)
+                fetchPropertyDetails(fallbackPropId, contract.roomId)
+            }
+        }
+    }
+
+    private fun fetchPropertyDetails(propertyId: String?, roomId: String?) {
+        if (propertyId == null) {
+            binding.tvResidence.text = "Residence: Unknown Property"
+            binding.tvLeaseAddress.text = "Address: N/A"
+            return
+        }
+        
         FirebaseManager.propertiesRef.child(propertyId).get().addOnSuccessListener { snapshot ->
             if (isFinishing || isDestroyed) return@addOnSuccessListener
             val property = snapshot.getValue(Property::class.java)
             if (property != null) {
-                val residenceText = if (roomId != null) "${property.propertyName}, $roomId" else property.propertyName
+                val residenceText = if (!roomId.isNullOrEmpty()) "${property.propertyName}, Unit $roomId" else property.propertyName
                 binding.tvResidence.text = "Residence: $residenceText"
                 binding.tvLeaseAddress.text = "Address: ${property.address}"
             }
         }
+    }
+
+    private fun showNoLeaseState() {
+        binding.tvResidence.text = "Residence: None"
+        binding.tvLeaseAddress.text = "Address: None"
+        binding.tvContractType.text = "Contract: None"
+        binding.tvBaseRate.text = "Base rate: None"
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        contractsListener?.let { FirebaseManager.contractsRef.removeEventListener(it) }
     }
 
     private fun setupMenu() {

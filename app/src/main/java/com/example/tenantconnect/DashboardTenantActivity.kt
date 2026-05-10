@@ -251,17 +251,19 @@ class DashboardTenantActivity : AppCompatActivity() {
     }
 
     private fun loadUserData(userId: String) {
-        FirebaseManager.usersRef.child(userId).get().addOnSuccessListener { snapshot ->
-            if (isFinishing || isDestroyed) return@addOnSuccessListener
-            
-            val user = snapshot.getValue(User::class.java)
-            if (user != null) {
-                binding.tvGreeting.text = "Hello, ${user.firstName}!"
-                ImageUtils.loadImage(binding.ivProfileSmall, user.profilePhotoUrl)
+        FirebaseManager.usersRef.child(userId).addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                if (isFinishing || isDestroyed) return
+                
+                val user = snapshot.getValue(User::class.java)
+                if (user != null) {
+                    binding.tvGreeting.text = "Hello, ${user.firstName}!"
+                    ImageUtils.loadImage(binding.ivProfileSmall, user.profilePhotoUrl)
+                }
             }
-        }.addOnFailureListener {
-            Toast.makeText(this, "Error loading data: ${it.message}", Toast.LENGTH_SHORT).show()
-        }
+
+            override fun onCancelled(error: DatabaseError) {}
+        })
     }
 
     private fun displayAccommodation(propertyId: String?, roomId: String?) {

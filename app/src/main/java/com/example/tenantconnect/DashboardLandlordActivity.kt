@@ -96,23 +96,18 @@ class DashboardLandlordActivity : AppCompatActivity() {
     }
 
     private fun loadLandlordInfo(userId: String) {
-        FirebaseManager.usersRef.child(userId).get().addOnSuccessListener { snapshot ->
-            if (isFinishing || isDestroyed) return@addOnSuccessListener
-            val user = snapshot.getValue(User::class.java)
-            if (user != null) {
-                binding.tvGreeting.text = "Welcome, ${user.firstName}!"
-                
-                user.profilePhotoUrl?.let { uriString ->
-                    binding.ivProfileSmall.load(uriString) {
-                        crossfade(true)
-                        placeholder(R.drawable.ic_person)
-                        error(R.drawable.ic_person)
-                    }
-                } ?: run {
-                    binding.ivProfileSmall.setImageResource(R.drawable.ic_person)
+        FirebaseManager.usersRef.child(userId).addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                if (isFinishing || isDestroyed) return
+                val user = snapshot.getValue(User::class.java)
+                if (user != null) {
+                    binding.tvGreeting.text = "Welcome, ${user.firstName}!"
+                    ImageUtils.loadImage(binding.ivProfileSmall, user.profilePhotoUrl)
                 }
             }
-        }
+
+            override fun onCancelled(error: DatabaseError) {}
+        })
     }
 
     private fun checkPropertySetup(userId: String) {

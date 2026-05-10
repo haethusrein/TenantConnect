@@ -28,16 +28,9 @@ class TenantChatAdapter(
         holder.binding.tvTenantAvatar.text = tenant.firstName?.take(1) ?: "T"
         
         // Load photo or show initial fallback
-        tenant.profilePhotoUrl?.let { uriString ->
-            holder.binding.ivTenantPhoto.load(uriString) {
-                crossfade(true)
-            }
-            holder.binding.ivTenantPhoto.isVisible = true
-            holder.binding.tvTenantAvatar.isVisible = false
-        } ?: run {
-            holder.binding.ivTenantPhoto.isVisible = false
-            holder.binding.tvTenantAvatar.isVisible = true
-        }
+        ImageUtils.loadImage(holder.binding.ivTenantPhoto, tenant.profilePhotoUrl)
+        holder.binding.ivTenantPhoto.isVisible = !tenant.profilePhotoUrl.isNullOrEmpty()
+        holder.binding.tvTenantAvatar.isVisible = tenant.profilePhotoUrl.isNullOrEmpty()
 
         // Hide the delete button for the chat list
         holder.binding.btnDeleteTenant.visibility = View.GONE

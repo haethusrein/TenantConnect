@@ -1,19 +1,21 @@
 package com.example.tenantconnect
 
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Bundle
+import android.util.Base64
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.isVisible
-import com.example.tenantconnect.databinding.ActivityLandlordDetailsBinding
-
-import android.net.Uri
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.isVisible
 import coil.load
-import com.google.firebase.storage.FirebaseStorage
+import com.example.tenantconnect.databinding.ActivityLandlordDetailsBinding
+import java.io.ByteArrayOutputStream
 
 class LandlordDetailsActivity : AppCompatActivity() {
     private lateinit var binding: ActivityLandlordDetailsBinding
@@ -49,9 +51,6 @@ class LandlordDetailsActivity : AppCompatActivity() {
             val totalRoomsStr = binding.etTotalRooms.text.toString().trim()
 
             if (name.isEmpty() || address.isEmpty() || totalRoomsStr.isEmpty()) {
-                if (name.isEmpty()) binding.etPropertyName.error = "Property name required"
-                if (address.isEmpty()) binding.etPropertyAddress.error = "Address required"
-                if (totalRoomsStr.isEmpty()) binding.etTotalRooms.error = "Units required"
                 Toast.makeText(this, "Please fill in all fields", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
@@ -63,8 +62,55 @@ class LandlordDetailsActivity : AppCompatActivity() {
             }
 
             if (landlordId != null) {
-                savePropertyDetails(landlordId, name, address, totalRooms)
+                processAndSave(landlordId, name, address, totalRooms)
             }
+        }
+    }
+
+    private fun processAndSave(landlordId: String, name: String, address: String, totalRooms: Int) {
+        showLoading(true)
+        if (qrImageUri != null) {
+            processImageToBase64(qrImageUri!!, 500) { base64 ->
+                if (base64 != null) {
+                    savePropertyDetails(landlordId, name, address, totalRooms, base64)
+                } else {
+                    showLoading(false)
+                    Toast.makeText(this, "Failed to process QR code", Toast.LENGTH_SHORT).show()
+                }
+            }
+        } else {
+            savePropertyDetails(landlordId, name, address, totalRooms, null)
+        }
+    }
+
+    private fun processImageToBase64(uri: Uri, maxSide: Int, callback: (String?) -> Unit) {
+        try {
+            val inputStream = contentResolver.openInputStream(uri)
+            val original = BitmapFactory.decodeStream(inputStream)
+            inputStream?.close()
+            if (original == null) return callback(null)
+
+            val width = original.width
+            val height = original.height
+            val ratio = width.toFloat() / height.toFloat()
+            
+            var newWidth = maxSide
+            var newHeight = maxSide
+            
+            if (width > height) {
+                newHeight = (maxSide / ratio).toInt()
+            } else {
+                newWidth = (maxSide * ratio).toInt()
+            }
+
+            val scaled = Bitmap.createScaledBitmap(original, newWidth, newHeight, true)
+            val out = ByteArrayOutputStream()
+            // Increased quality to 80
+            scaled.compress(Bitmap.CompressFormat.JPEG, 80, out)
+            val base64 = "data:image/jpeg;base64," + Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
+            callback(base64)
+        } catch (e: Exception) {
+            callback(null)
         }
     }
 
@@ -72,75 +118,39 @@ class LandlordDetailsActivity : AppCompatActivity() {
         val loadingOverlay = findViewById<View>(R.id.loading_overlay)
         val tvMessage = findViewById<TextView>(R.id.tv_loading_message)
         
-        loadingOverlay.isVisible = isLoading
+        loadingOverlay?.isVisible = isLoading
         binding.btnSubmitDetails.isEnabled = !isLoading
         
         if (isLoading) {
-            tvMessage.text = "Saving property info..."
+            tvMessage?.text = "Saving property info..."
         }
     }
 
-    private fun savePropertyDetails(landlordId: String, name: String, address: String, totalRooms: Int) {
-        showLoading(true)
+    private fun savePropertyDetails(landlordId: String, name: String, address: String, totalRooms: Int, qrBase64: String?) {
         val propertyId = FirebaseManager.propertiesRef.push().key ?: return
-
-        if (qrImageUri != null) {
-            uploadPropertyImage(propertyId, qrImageUri!!) { downloadUrl ->
-                performPropertySave(landlordId, propertyId, name, address, totalRooms, downloadUrl)
-            }
-        } else {
-            performPropertySave(landlordId, propertyId, name, address, totalRooms, null)
-        }
-    }
-
-    private fun uploadPropertyImage(propertyId: String, uri: Uri, callback: (String?) -> Unit) {
-        val fileName = "prop_${propertyId}_${System.currentTimeMillis()}.jpg"
-        val ref = FirebaseManager.storage.getReference("property_photos").child(fileName)
-
-        ref.putFile(uri)
-            .addOnSuccessListener {
-                ref.downloadUrl.addOnSuccessListener { downloadUri ->
-                    callback(downloadUri.toString())
-                }.addOnFailureListener {
-                    showLoading(false)
-                    Toast.makeText(this, "Failed to get download URL", Toast.LENGTH_SHORT).show()
-                    callback(null)
-                }
-            }
-            .addOnFailureListener {
-                showLoading(false)
-                Toast.makeText(this, "Upload failed: ${it.message}", Toast.LENGTH_SHORT).show()
-                callback(null)
-            }
-    }
-
-    private fun performPropertySave(landlordId: String, propertyId: String, name: String, address: String, totalRooms: Int, imageUrl: String?) {
+        
         val property = Property(
             propertyId = propertyId,
             landlordId = landlordId,
             propertyName = name,
             address = address,
             totalRooms = totalRooms,
-            coverPhotoUrl = imageUrl
+            coverPhotoUrl = qrBase64
         )
 
         FirebaseManager.propertiesRef.child(propertyId).setValue(property)
             .addOnSuccessListener {
-                // Also update the landlord's user record with the propertyId
                 FirebaseManager.usersRef.child(landlordId).child("propertyId").setValue(propertyId)
                     .addOnCompleteListener {
                         showLoading(false)
-                        Toast.makeText(this, "Property Setup Complete!", Toast.LENGTH_SHORT).show()
                         val intent = Intent(this, DashboardLandlordActivity::class.java)
                         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        intent.putExtra("SHOW_ADD_TENANT", true)
                         startActivity(intent)
                         finish()
                     }
             }
             .addOnFailureListener {
                 showLoading(false)
-                Toast.makeText(this, "Failed to save property: ${it.message}", Toast.LENGTH_SHORT).show()
             }
     }
 }

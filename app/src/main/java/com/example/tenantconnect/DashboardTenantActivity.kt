@@ -63,7 +63,7 @@ class DashboardTenantActivity : AppCompatActivity() {
 
                     if (activeContract != null) {
                         binding.mainContentLayout.isVisible = true
-                        binding.layoutEmpty.root.isVisible = false
+                        binding.layoutEmpty.layoutEmptyAccommodation.isVisible = false
                         
                         displayAccommodation(activeContract.propertyId, activeContract.roomId)
                         listenForDashboardBilling(activeContract.contractId)
@@ -226,9 +226,21 @@ class DashboardTenantActivity : AppCompatActivity() {
             if (property != null) {
                 binding.tvAccommodationLabel.isVisible = true
                 binding.tvAccommodationAddress.isVisible = true
-                val displayText = if (roomId != null) "${property.propertyName}, $roomId" else property.propertyName
-                binding.tvAccommodation.text = displayText
-                binding.tvAccommodationAddress.text = property.address
+                
+                // Building name and Unit number
+                val bldg = property.propertyName ?: "Apartment"
+                val unit = if (!roomId.isNullOrEmpty()) "Unit $roomId" else "Room N/A"
+                binding.tvAccommodation.text = "$bldg, $unit"
+                
+                // Full Address
+                binding.tvAccommodationAddress.text = property.address ?: "Address N/A"
+                
+                // Adjust text size if it's too long
+                if (binding.tvAccommodation.text.length > 20) {
+                    binding.tvAccommodation.textSize = 24f
+                } else {
+                    binding.tvAccommodation.textSize = 36f
+                }
             }
         }
     }
@@ -249,7 +261,7 @@ class DashboardTenantActivity : AppCompatActivity() {
 
     private fun showNoAccommodationState() {
         binding.mainContentLayout.isVisible = false
-        binding.layoutEmpty.root.isVisible = true
+        binding.layoutEmpty.layoutEmptyAccommodation.isVisible = true
     }
 
     private fun setupMenu() {

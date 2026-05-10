@@ -178,6 +178,43 @@
             android:textColor="@color/slate"
             android:inputType="number" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Payment QR Code"
+            android:textColor="@color/slate"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="10dp">
+
+            <ImageView
+                android:id="@+id/ivQrPreview"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:scaleType="centerCrop"
+                android:background="#EEEEEE"
+                android:src="@android:drawable/ic_menu_gallery" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnChangeQr"
+                android:layout_width="wrap_content"
+                android:layout_height="35dp"
+                android:layout_marginStart="15dp"
+                android:background="@drawable/bg_button"
+                android:backgroundTint="@color/slate"
+                android:paddingHorizontal="15dp"
+                android:text="Update QR"
+                android:textAllCaps="false"
+                android:textColor="@android:color/white"
+                android:textSize="12sp" />
+        </LinearLayout>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

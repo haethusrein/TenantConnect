@@ -93,16 +93,28 @@ class ViewContractActivity : AppCompatActivity() {
             binding.tvTenantName.text = "${tenant?.firstName} ${tenant?.lastName}"
         }
 
-        // Fetch Property Info
-        val propId = contract.propertyId
-        if (propId != null) {
-            fetchAndShowProperty(propId, contract.roomId)
+        // Fetch Property Info with Fallbacks
+        if (contract.propertyId != null) {
+            fetchAndShowProperty(contract.propertyId, contract.roomId)
+        } else if (contract.landlordId != null) {
+            FirebaseManager.propertiesRef.orderByChild("landlordId").equalTo(contract.landlordId).get()
+                .addOnSuccessListener { snapshot ->
+                    val property = snapshot.children.firstOrNull()?.getValue(Property::class.java)
+                    if (property != null) {
+                        fetchAndShowProperty(property.propertyId, contract.roomId)
+                    } else {
+                        fetchPropertyIdFromUser(contract)
+                    }
+                }
         } else {
-            // Fallback: Get propertyId from tenant record
-            FirebaseManager.usersRef.child(contract.tenantId ?: "").child("propertyId").get().addOnSuccessListener { snapshot ->
-                val fallbackPropId = snapshot.getValue(String::class.java)
-                fetchAndShowProperty(fallbackPropId, contract.roomId)
-            }
+            fetchPropertyIdFromUser(contract)
+        }
+    }
+
+    private fun fetchPropertyIdFromUser(contract: Contract) {
+        FirebaseManager.usersRef.child(contract.tenantId ?: "").child("propertyId").get().addOnSuccessListener { snapshot ->
+            val fallbackPropId = snapshot.getValue(String::class.java)
+            fetchAndShowProperty(fallbackPropId, contract.roomId)
         }
     }
 

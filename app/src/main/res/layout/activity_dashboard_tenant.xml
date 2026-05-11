@@ -25,7 +25,6 @@
                 android:layout_width="32dp"
                 android:layout_height="32dp"
                 android:src="@drawable/ic_person"
-                app:tint="@color/white"
                 android:scaleType="centerCrop"
                 android:background="#40FFFFFF"
                 android:contentDescription="Small Profile" />

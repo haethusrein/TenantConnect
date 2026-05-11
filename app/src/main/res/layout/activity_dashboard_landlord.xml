@@ -25,7 +25,6 @@
                 android:layout_width="32dp"
                 android:layout_height="32dp"
                 android:src="@drawable/ic_person"
-                app:tint="@color/white"
                 android:scaleType="centerCrop"
                 android:background="#40FFFFFF"
                 android:contentDescription="Small Profile" />
@@ -218,6 +217,60 @@
                         android:backgroundTint="#9A8C98"
                         android:paddingHorizontal="15dp"
                         android:text="Manage Tenants"
+                        android:textColor="@color/black"
+                        android:textSize="10sp"
+                        android:textAllCaps="false" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Payments Section -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:layout_marginBottom="20dp"
+                app:cardBackgroundColor="@color/card_bg"
+                app:cardCornerRadius="25dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Payments"
+                        android:textColor="@color/white"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Current Earnings"
+                        android:textColor="@color/white"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/tv_current_earnings"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="₱0.00"
+                        android:textColor="@color/white"
+                        android:textSize="48sp"
+                        android:textStyle="bold" />
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/btn_dashboard_view_payments"
+                        android:layout_width="wrap_content"
+                        android:layout_height="30dp"
+                        android:layout_gravity="end"
+                        android:layout_marginTop="10dp"
+                        android:background="@drawable/bg_status_badge"
+                        android:backgroundTint="#9A8C98"
+                        android:paddingHorizontal="15dp"
+                        android:text="View Payments"
                         android:textColor="@color/black"
                         android:textSize="10sp"
                         android:textAllCaps="false" />

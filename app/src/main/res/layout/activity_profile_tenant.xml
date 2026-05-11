@@ -109,7 +109,6 @@
                             android:background="#9E9E9E"
                             android:scaleType="centerCrop"
                             android:src="@drawable/ic_person"
-                            app:tint="@color/white"
                             android:contentDescription="Profile Photo" />
                         <LinearLayout
                             android:layout_width="wrap_content"

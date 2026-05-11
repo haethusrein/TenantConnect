@@ -100,20 +100,25 @@ class DashboardTenantActivity : AppCompatActivity() {
     }
 
     private fun updateDashboardWithContract(contract: Contract) {
-        // Fallback: If contract.propertyId is null, try to get it from the current user profile
+        // Find property based on contract data
         if (contract.propertyId != null) {
             displayAccommodation(contract.propertyId, contract.roomId)
             displayRecentAnnouncement(contract.propertyId)
-        } else {
-            // Fetch propertyId from user record if missing in contract
-            val userId = FirebaseManager.auth.currentUser?.uid
-            if (userId != null) {
-                FirebaseManager.usersRef.child(userId).child("propertyId").get().addOnSuccessListener { snapshot ->
-                    val fallbackPropId = snapshot.getValue(String::class.java)
-                    displayAccommodation(fallbackPropId, contract.roomId)
-                    displayRecentAnnouncement(fallbackPropId)
+        } else if (contract.landlordId != null) {
+            // Fallback 1: Look up property by landlordId
+            FirebaseManager.propertiesRef.orderByChild("landlordId").equalTo(contract.landlordId).get()
+                .addOnSuccessListener { snapshot ->
+                    val property = snapshot.children.firstOrNull()?.getValue(Property::class.java)
+                    if (property != null) {
+                        displayAccommodation(property.propertyId, contract.roomId)
+                        displayRecentAnnouncement(property.propertyId)
+                    } else {
+                        // Fallback 2: Try user profile as a last resort
+                        fetchPropertyIdFromUser(contract)
+                    }
                 }
-            }
+        } else {
+            fetchPropertyIdFromUser(contract)
         }
         
         listenForDashboardBilling(contract.contractId)
@@ -128,6 +133,17 @@ class DashboardTenantActivity : AppCompatActivity() {
             val intent = Intent(this, ViewContractActivity::class.java)
             intent.putExtra("CONTRACT_ID", contract.contractId)
             startActivity(intent)
+        }
+    }
+
+    private fun fetchPropertyIdFromUser(contract: Contract) {
+        val userId = FirebaseManager.auth.currentUser?.uid
+        if (userId != null) {
+            FirebaseManager.usersRef.child(userId).child("propertyId").get().addOnSuccessListener { snapshot ->
+                val fallbackPropId = snapshot.getValue(String::class.java)
+                displayAccommodation(fallbackPropId, contract.roomId)
+                displayRecentAnnouncement(fallbackPropId)
+            }
         }
     }
 

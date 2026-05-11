@@ -13,17 +13,18 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.toColorInt
-import coil.load
 import com.example.tenantconnect.databinding.ActivityDashboardLandlordBinding
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
+import java.util.Locale
 
 class DashboardLandlordActivity : AppCompatActivity() {
     private lateinit var binding: ActivityDashboardLandlordBinding
 
     private var propertyListener: ValueEventListener? = null
     private var contractListener: ValueEventListener? = null
+    private var earningsListener: ValueEventListener? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,6 +36,7 @@ class DashboardLandlordActivity : AppCompatActivity() {
             checkPropertySetup(userId)
             listenForPropertyData(userId)
             listenForOccupancy(userId)
+            listenForEarnings(userId)
             loadLandlordInfo(userId)
         }
 
@@ -45,6 +47,10 @@ class DashboardLandlordActivity : AppCompatActivity() {
 
         binding.btnViewAllTenants.setOnClickListener {
             startActivity(Intent(this, ManageTenantsActivity::class.java))
+        }
+
+        binding.btnDashboardViewPayments.setOnClickListener {
+            startActivity(Intent(this, PaymentLandlordActivity::class.java))
         }
 
         binding.btnManageAnnouncements.setOnClickListener {
@@ -89,10 +95,39 @@ class DashboardLandlordActivity : AppCompatActivity() {
             })
     }
 
+    private fun listenForEarnings(userId: String) {
+        // Earnings are calculated from Paid billings belonging to this landlord's contracts
+        earningsListener = FirebaseManager.billingsRef.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                if (isFinishing || isDestroyed) return
+                
+                // 1. Get all contracts for this landlord first
+                FirebaseManager.contractsRef.orderByChild("landlordId").equalTo(userId).get()
+                    .addOnSuccessListener { contractSnapshot ->
+                        val myContractIds = contractSnapshot.children.mapNotNull { it.key }
+                        
+                        // 2. Sum up 'Paid' billings linked to those contracts
+                        var totalEarnings = 0.0
+                        for (billSnap in snapshot.children) {
+                            val bill = billSnap.getValue(Billing::class.java)
+                            if (bill != null && bill.status == "Paid" && myContractIds.contains(bill.contractId)) {
+                                totalEarnings += (bill.totalAmount ?: 0.0)
+                            }
+                        }
+                        
+                        binding.tvCurrentEarnings.text = String.format(Locale.US, "₱%.2f", totalEarnings)
+                    }
+            }
+
+            override fun onCancelled(error: DatabaseError) {}
+        })
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         propertyListener?.let { FirebaseManager.propertiesRef.removeEventListener(it) }
         contractListener?.let { FirebaseManager.contractsRef.removeEventListener(it) }
+        earningsListener?.let { FirebaseManager.billingsRef.removeEventListener(it) }
     }
 
     private fun loadLandlordInfo(userId: String) {

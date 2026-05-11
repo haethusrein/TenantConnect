@@ -168,12 +168,30 @@ class ProfileTenantActivity : AppCompatActivity() {
         binding.tvContractType.text = "Contract: ${contract.renewalTerm ?: "N/A"}"
         binding.tvBaseRate.text = "Base rate: ₱${String.format(Locale.US, "%.2f", contract.baseRentAmount)}"
         
-        // Fallback for missing propertyId
-        val propId = contract.propertyId
-        if (propId != null) {
-            fetchPropertyDetails(propId, contract.roomId)
+        // Robust Property Lookup with Fallbacks
+        if (contract.propertyId != null) {
+            fetchPropertyDetails(contract.propertyId, contract.roomId)
+        } else if (contract.landlordId != null) {
+            // Fallback 1: Look up property by landlordId
+            FirebaseManager.propertiesRef.orderByChild("landlordId").equalTo(contract.landlordId).get()
+                .addOnSuccessListener { snapshot ->
+                    val property = snapshot.children.firstOrNull()?.getValue(Property::class.java)
+                    if (property != null) {
+                        fetchPropertyDetails(property.propertyId, contract.roomId)
+                    } else {
+                        // Fallback 2: Try user profile as a last resort
+                        fetchPropertyIdFromUserProfile(contract)
+                    }
+                }
         } else {
-            FirebaseManager.usersRef.child(contract.tenantId ?: "").child("propertyId").get().addOnSuccessListener { snapshot ->
+            fetchPropertyIdFromUserProfile(contract)
+        }
+    }
+
+    private fun fetchPropertyIdFromUserProfile(contract: Contract) {
+        val userId = FirebaseManager.auth.currentUser?.uid
+        if (userId != null) {
+            FirebaseManager.usersRef.child(userId).child("propertyId").get().addOnSuccessListener { snapshot ->
                 val fallbackPropId = snapshot.getValue(String::class.java)
                 fetchPropertyDetails(fallbackPropId, contract.roomId)
             }

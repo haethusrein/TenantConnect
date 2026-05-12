@@ -2,6 +2,8 @@ package com.example.tenantconnect
 
 import android.app.Dialog
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.Toast
@@ -28,6 +30,23 @@ class AddTenantDialog : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        setupInitialState()
+
+        binding.etTenantSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                setupInitialState() // Reset if they start typing again
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        binding.btnCancel.setOnClickListener {
+            dismiss()
+        }
+    }
+
+    private fun setupInitialState() {
+        binding.btnAddTenant.text = "Search Account"
         binding.btnAddTenant.setOnClickListener {
             val query = binding.etTenantSearch.text.toString().trim().lowercase()
             if (query.isNotEmpty()) {
@@ -37,10 +56,7 @@ class AddTenantDialog : BottomSheetDialogFragment() {
                 binding.etTenantSearch.requestFocus()
             }
         }
-
-        binding.btnCancel.setOnClickListener {
-            dismiss()
-        }
+        binding.tvSearchResult.isVisible = false
     }
 
     private fun showLoading(isLoading: Boolean) {
@@ -66,12 +82,12 @@ class AddTenantDialog : BottomSheetDialogFragment() {
                         binding.tvSearchResult.isVisible = true
 
                         if (tenant.landlordId == null) {
+                            binding.btnAddTenant.text = "Send Invitation"
                             binding.btnAddTenant.setOnClickListener {
                                 sendInvitation(tenantSnapshot.key!!, tenant)
                             }
-                            binding.btnAddTenant.text = "Send Invitation"
                         } else {
-                            showError("Tenant Registered", "This tenant is already registered to another landlord.")
+                            showError("Already Linked", "This tenant is already linked to a landlord.")
                             binding.btnAddTenant.isEnabled = false
                         }
                     } else {
@@ -137,10 +153,6 @@ class AddTenantDialog : BottomSheetDialogFragment() {
                     }
             }
         }
-    }
-
-    private fun assignTenantToLandlord(tenantUid: String, tenant: User) {
-        // This method is now replaced by the invitation flow
     }
 
     override fun onDestroyView() {

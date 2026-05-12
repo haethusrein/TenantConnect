@@ -156,7 +156,6 @@ class InboxTenantActivity : AppCompatActivity() {
     private fun sendMessage(senderId: String, text: String) {
         val currentChatId = chatId ?: return
         val partnerId = targetUserId ?: return
-        // Messages are now stored under their specific chatId node
         val messageId = FirebaseManager.messagesRef.child(currentChatId).push().key ?: return
         
         val message = Message(

@@ -1,10 +1,13 @@
 package com.example.tenantconnect
 
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.util.Base64
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
@@ -14,14 +17,16 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import coil.load
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.net.toUri
 import androidx.core.view.isVisible
 import com.example.tenantconnect.databinding.ActivityPaymentDetailsTenantBinding
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
+import java.io.ByteArrayOutputStream
 import java.util.Locale
 
 class PaymentDetailsTenantActivity : AppCompatActivity() {
@@ -32,6 +37,15 @@ class PaymentDetailsTenantActivity : AppCompatActivity() {
     private var selectedMethod: String = ""
     private var activeContracts = mutableListOf<Contract>()
     private var billingListener: ValueEventListener? = null
+    
+    private var selectedProofUri: Uri? = null
+
+    private val selectProofLauncher = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let {
+            selectedProofUri = it
+            Toast.makeText(this, "Proof photo selected!", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,7 +73,6 @@ class PaymentDetailsTenantActivity : AppCompatActivity() {
 
                 if (activeContracts.isNotEmpty()) {
                     setupContractSpinner()
-                    // Initial update with the first contract
                     updatePaymentInfo(activeContracts[0])
                 } else {
                     binding.spinnerContracts.isVisible = false
@@ -97,6 +110,8 @@ class PaymentDetailsTenantActivity : AppCompatActivity() {
 
     private fun listenForLatestBilling(contractId: String?) {
         if (contractId == null) return
+        billingListener?.let { FirebaseManager.billingsRef.removeEventListener(it) }
+        
         billingListener = FirebaseManager.billingsRef.orderByChild("contractId").equalTo(contractId)
             .addValueEventListener(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
@@ -109,7 +124,6 @@ class PaymentDetailsTenantActivity : AppCompatActivity() {
                         resetBillingDisplay()
                     }
                 }
-
                 override fun onCancelled(error: DatabaseError) {}
             })
     }
@@ -131,7 +145,6 @@ class PaymentDetailsTenantActivity : AppCompatActivity() {
             currentProperty = snapshot.getValue(Property::class.java)
             currentProperty?.let { prop ->
                 binding.tvUnit.text = "Unit: ${activeContract?.roomId ?: "-"}"
-                
                 FirebaseManager.usersRef.child(prop.landlordId ?: "").get().addOnSuccessListener { userSnap ->
                     val landlord = userSnap.getValue(User::class.java)
                     binding.tvOwner.text = "Owner: ${landlord?.firstName} ${landlord?.lastName}"
@@ -150,11 +163,9 @@ class PaymentDetailsTenantActivity : AppCompatActivity() {
     private fun displayBillingBreakdown(billing: Billing) {
         val locale = Locale.US
         val total = billing.totalAmount ?: 0.0
-        
         binding.tvBillingAmount.text = String.format(locale, "₱%.2f", total)
         binding.tvDueDate.text = "Due in: ${billing.dueDate}"
         binding.tvTotalBalance.text = String.format(locale, "To Pay: ₱%.2f", total)
-        
         binding.tvRentalBreakdown.text = String.format(locale, "Rental: ₱%.2f", billing.rentCharge ?: 0.0)
         binding.tvWaterBreakdown.text = String.format(locale, "Water Bill: ₱%.2f", billing.waterCharge ?: 0.0)
         binding.tvElectricBreakdown.text = String.format(locale, "Electric Bill: ₱%.2f", billing.electricityCharge ?: 0.0)
@@ -166,11 +177,7 @@ class PaymentDetailsTenantActivity : AppCompatActivity() {
         val methods = arrayOf("Cash", "Online Pay")
         val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, methods)
         binding.etPaymentMethod.setAdapter(adapter)
-        
-        binding.etPaymentMethod.setOnClickListener {
-            binding.etPaymentMethod.showDropDown()
-        }
-
+        binding.etPaymentMethod.setOnClickListener { binding.etPaymentMethod.showDropDown() }
         binding.etPaymentMethod.setOnItemClickListener { _, _, position, _ ->
             selectedMethod = methods[position]
             handleMethodSelection(selectedMethod)
@@ -179,129 +186,111 @@ class PaymentDetailsTenantActivity : AppCompatActivity() {
 
     private fun handleMethodSelection(method: String) {
         if (method == "Cash") {
-            binding.btnPay.text = "Confirm Payment"
+            binding.containerOnlinePay.isVisible = false
+            binding.containerTransactionForm.isVisible = false
+            binding.btnPay.text = "Confirm Cash Notify"
             binding.btnPay.isVisible = true
-            sendCashNotification()
         } else if (method == "Online Pay") {
-            showQrDialog()
+            binding.containerOnlinePay.isVisible = true
+            binding.containerTransactionForm.isVisible = false
+            binding.btnPay.isVisible = false
+            currentProperty?.coverPhotoUrl?.let { ImageUtils.loadImage(binding.ivLandlordQr, it, android.R.drawable.ic_menu_gallery) }
         }
     }
 
-    private fun showQrDialog() {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_online_payment_qr, null)
-        val ivQr = dialogView.findViewById<android.widget.ImageView>(R.id.iv_landlord_qr)
-        val btnPaid = dialogView.findViewById<android.widget.Button>(R.id.btn_already_paid)
-        
-        currentProperty?.coverPhotoUrl?.let {
-            ivQr.load(it)
-        }
-
-        val dialog = AlertDialog.Builder(this)
-            .setView(dialogView)
-            .create()
-        
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-
-        btnPaid.setOnClickListener {
-            dialog.dismiss()
-            showOnlineTransactionDialog()
+    private fun setupButtons() {
+        binding.btnAlreadyPaid.setOnClickListener {
+            binding.containerOnlinePay.isVisible = false
+            binding.containerTransactionForm.isVisible = true
+            binding.btnPay.isVisible = true
+            binding.btnPay.text = "Submit Transaction"
         }
         
-        dialog.show()
-    }
+        binding.btnPay.setOnClickListener {
+            if (selectedMethod == "Cash") {
+                sendCashNotification()
+            } else {
+                val transId = binding.etTransactionId.text.toString().trim()
+                val gcash = binding.etGcashInfo.text.toString().trim()
+                val amountStr = binding.etAmountToPay.text.toString().trim()
 
-    private fun showOnlineTransactionDialog() {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_online_transaction_form, null)
-        val etTransId = dialogView.findViewById<android.widget.EditText>(R.id.et_transaction_id)
-        val etGcash = dialogView.findViewById<android.widget.EditText>(R.id.et_gcash_info)
-        val etAmount = dialogView.findViewById<android.widget.EditText>(R.id.et_amount_to_pay)
-        val btnSubmit = dialogView.findViewById<android.widget.Button>(R.id.btn_submit_transaction)
-
-        val dialog = AlertDialog.Builder(this)
-            .setView(dialogView)
-            .create()
-        
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-
-        btnSubmit.setOnClickListener {
-            val transId = etTransId.text.toString().trim()
-            val gcash = etGcash.text.toString().trim()
-            val amountStr = etAmount.text.toString().trim()
-
-            if (transId.isEmpty() || gcash.isEmpty() || amountStr.isEmpty()) {
-                Toast.makeText(this, "Please fill all details", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+                if (transId.isEmpty() || gcash.isEmpty() || amountStr.isEmpty()) {
+                    Toast.makeText(this, "Please fill all details", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                
+                if (selectedProofUri == null) {
+                    AlertDialog.Builder(this)
+                        .setTitle("Upload Proof")
+                        .setMessage("Please attach a screenshot of your GCash receipt.")
+                        .setPositiveButton("Select Photo") { _, _ -> selectProofLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+                        .setNegativeButton("Cancel", null)
+                        .show()
+                } else {
+                    submitOnlineTransaction(transId, gcash, amountStr.toDoubleOrNull() ?: 0.0)
+                }
             }
-
-            submitOnlineTransaction(transId, gcash, amountStr.toDoubleOrNull() ?: 0.0)
-            dialog.dismiss()
         }
-        
-        dialog.show()
     }
 
     private fun sendCashNotification() {
         val currentUserId = FirebaseManager.auth.currentUser?.uid ?: return
         val landlordId = currentProperty?.landlordId ?: return
-        
         val ids = listOf(currentUserId, landlordId).sorted()
-        val chatId = "${ids[0]}_${ids[1]}"
-        
+        val chatId = "${ids[0]}_${ids[1]}_${activeContract?.contractId}"
         val messageId = FirebaseManager.messagesRef.child(chatId).push().key ?: return
-        val msg = Message(
-            messageId = messageId,
-            chatId = chatId,
-            senderId = currentUserId,
-            receiverId = landlordId,
-            messageText = "I will pay with cash for my current bill.",
-            timestamp = System.currentTimeMillis()
-        )
-        
-        FirebaseManager.messagesRef.child(chatId).child(messageId).setValue(msg)
-            .addOnSuccessListener {
-                Toast.makeText(this, "Landlord notified: Paying with cash", Toast.LENGTH_SHORT).show()
-            }
-    }
-
-    private fun setupButtons() {
-        binding.btnPay.setOnClickListener {
-            if (selectedMethod == "Cash") {
-                Toast.makeText(this, "Please coordinate physical payment with your landlord.", Toast.LENGTH_LONG).show()
-                finish()
-            }
+        val msg = Message(messageId, chatId, currentUserId, landlordId, "I will pay with cash for Unit ${activeContract?.roomId}.", System.currentTimeMillis())
+        FirebaseManager.messagesRef.child(chatId).child(messageId).setValue(msg).addOnSuccessListener {
+            Toast.makeText(this, "Landlord notified!", Toast.LENGTH_SHORT).show()
+            finish()
         }
     }
 
     private fun submitOnlineTransaction(transId: String, gcash: String, amount: Double) {
-        val billingTotal = activeBilling?.totalAmount ?: 0.0
-
-        if (amount <= 0.0 || amount > billingTotal) {
-            Toast.makeText(this, "Invalid amount", Toast.LENGTH_SHORT).show()
-            return
-        }
-
+        val uid = FirebaseManager.auth.currentUser?.uid ?: return
         binding.btnPay.isEnabled = false
         
-        val transactionId = FirebaseManager.transactionsRef.push().key ?: return
-        val transaction = PaymentTransaction(
-            transactionId = transactionId,
-            billingId = activeBilling?.billingId,
-            tenantId = FirebaseManager.auth.currentUser?.uid,
-            amountPaid = amount,
-            paymentMethod = "Online (GCash)",
-            referenceNumber = transId,
-            verificationStatus = "Pending"
-        )
+        processImageToBase64(selectedProofUri!!, 600) { base64 ->
+            val transactionId = FirebaseManager.transactionsRef.push().key ?: return@processImageToBase64
+            val transaction = PaymentTransaction(
+                transactionId = transactionId,
+                billingId = activeBilling?.billingId,
+                tenantId = uid,
+                amountPaid = amount,
+                paymentMethod = "Online (GCash)",
+                referenceNumber = transId,
+                proofOfPaymentUrl = base64,
+                verificationStatus = "Pending"
+            )
 
-        FirebaseManager.transactionsRef.child(transactionId).setValue(transaction)
-            .addOnSuccessListener {
-                Toast.makeText(this, "Transaction submitted for verification!", Toast.LENGTH_LONG).show()
-                finish()
+            FirebaseManager.transactionsRef.child(transactionId).setValue(transaction)
+                .addOnSuccessListener {
+                    Toast.makeText(this, "Transaction submitted!", Toast.LENGTH_LONG).show()
+                    finish()
+                }
+                .addOnFailureListener {
+                    binding.btnPay.isEnabled = true
+                    Toast.makeText(this, "Failed: ${it.message}", Toast.LENGTH_SHORT).show()
+                }
+        }
+    }
+
+    private fun processImageToBase64(uri: Uri, maxSide: Int, callback: (String?) -> Unit) {
+        try {
+            val inputStream = contentResolver.openInputStream(uri)
+            val original = BitmapFactory.decodeStream(inputStream)
+            inputStream?.close()
+            if (original == null) return callback(null)
+            var w = original.width; var h = original.height
+            if (w > maxSide || h > maxSide) {
+                val r = w.toFloat() / h.toFloat()
+                if (w > h) { w = maxSide; h = (maxSide / r).toInt() } else { h = maxSide; w = (maxSide * r).toInt() }
             }
-            .addOnFailureListener {
-                binding.btnPay.isEnabled = true
-                Toast.makeText(this, "Submission failed: ${it.message}", Toast.LENGTH_SHORT).show()
-            }
+            val scaled = Bitmap.createScaledBitmap(original, w, h, true)
+            val out = ByteArrayOutputStream()
+            scaled.compress(Bitmap.CompressFormat.JPEG, 70, out)
+            callback("data:image/jpeg;base64," + Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP))
+        } catch (e: Exception) { callback(null) }
     }
 
     override fun onDestroy() {
@@ -316,11 +305,9 @@ class PaymentDetailsTenantActivity : AppCompatActivity() {
             popup.anchorView = view
             val adapter = object : ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, menuItems) {
                 override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-                    val view = super.getView(position, convertView, parent) as TextView
-                    view.setTextColor(Color.WHITE)
-                    view.setPadding(40, 30, 40, 30)
-                    view.textSize = 14f
-                    return view
+                    val v = super.getView(position, convertView, parent) as TextView
+                    v.setTextColor(Color.WHITE); v.setPadding(40, 30, 40, 30); v.textSize = 14f
+                    return v
                 }
             }
             popup.setAdapter(adapter)
@@ -330,11 +317,7 @@ class PaymentDetailsTenantActivity : AppCompatActivity() {
                 when (menuItems[position]) {
                     "Announcements" -> startActivity(Intent(this, AnnouncementsTenantActivity::class.java))
                     "Settings" -> startActivity(Intent(this, SettingsTenantActivity::class.java))
-                    "Log out" -> {
-                        FirebaseManager.auth.signOut()
-                        startActivity(Intent(this, LoginActivity::class.java))
-                        finishAffinity()
-                    }
+                    "Log out" -> { FirebaseManager.auth.signOut(); startActivity(Intent(this, LoginActivity::class.java)); finishAffinity() }
                 }
                 popup.dismiss()
             }
@@ -343,21 +326,9 @@ class PaymentDetailsTenantActivity : AppCompatActivity() {
     }
 
     private fun setupBottomNavigation() {
-        binding.bottomNav.navHome.setOnClickListener {
-            val intent = Intent(this, DashboardTenantActivity::class.java)
-            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            startActivity(intent)
-        }
-        binding.bottomNav.navNotifications.setOnClickListener {
-            startActivity(Intent(this, InboxTenantActivity::class.java))
-        }
-        binding.bottomNav.navPayments.setOnClickListener {
-            val intent = Intent(this, PaymentTenantActivity::class.java)
-            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
-            startActivity(intent)
-        }
-        binding.bottomNav.navProfile.setOnClickListener {
-            startActivity(Intent(this, ProfileTenantActivity::class.java))
-        }
+        binding.bottomNav.navHome.setOnClickListener { startActivity(Intent(this, DashboardTenantActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP }) }
+        binding.bottomNav.navNotifications.setOnClickListener { startActivity(Intent(this, InboxTenantActivity::class.java)) }
+        binding.bottomNav.navPayments.setOnClickListener { /* here */ }
+        binding.bottomNav.navProfile.setOnClickListener { startActivity(Intent(this, ProfileTenantActivity::class.java)) }
     }
 }

@@ -91,10 +91,15 @@ class TenantBillingAdapter(
         holder.binding.btnStatus.setOnClickListener(clickListener)
 
         holder.itemView.setOnClickListener {
-            // View full history on item tap
-            val dialog = PaymentHistoryDialog(tenant, contract.contractId ?: "")
-            (holder.itemView.context as? androidx.fragment.app.FragmentActivity)?.supportFragmentManager?.let {
-                dialog.show(it, "PaymentHistoryDialog")
+            if (billing == null || billing.status != "Paid") {
+                // High Intent: If a bill needs issuing or verification, trigger action on row tap
+                onActionClick(tenant, contract, billing)
+            } else {
+                // If already paid, view full history
+                val dialog = PaymentHistoryDialog(tenant, contract.contractId ?: "")
+                (holder.itemView.context as? androidx.fragment.app.FragmentActivity)?.supportFragmentManager?.let {
+                    dialog.show(it, "PaymentHistoryDialog")
+                }
             }
         }
     }

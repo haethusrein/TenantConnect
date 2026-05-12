@@ -50,11 +50,18 @@ class PaymentHistoryDialog(
                     .filter { it.status == "Paid" }
                     .sortedByDescending { it.dueDate }
                 
-                binding.rvHistoryList.adapter = HistoryAdapter(history)
+                binding.rvHistoryList.adapter = HistoryAdapter(history) { bill ->
+                    val breakdown = PaymentBreakdownDialog(bill)
+                    breakdown.show(childFragmentManager, "PaymentBreakdownDialog")
+                }
             }
     }
 
-    class HistoryAdapter(private val history: List<Billing>) : RecyclerView.Adapter<HistoryAdapter.ViewHolder>() {
+    class HistoryAdapter(
+        private val history: List<Billing>,
+        private val onBillClick: (Billing) -> Unit
+    ) : RecyclerView.Adapter<HistoryAdapter.ViewHolder>() {
+        
         class ViewHolder(val view: View) : RecyclerView.ViewHolder(view)
         
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -72,6 +79,8 @@ class PaymentHistoryDialog(
             
             val amount = String.format(Locale.US, "₱%.2f", bill.totalAmount ?: 0.0)
             text2.text = "Total: $amount"
+            
+            holder.view.setOnClickListener { onBillClick(bill) }
         }
 
         override fun getItemCount(): Int = history.size

@@ -109,10 +109,12 @@ data class Invitation(
     val invitationId: String? = null,
     val tenantId: String? = null,
     val landlordId: String? = null,
-    val propertyId: String? = null, // Added
+    val propertyId: String? = null,
     val landlordName: String? = null,
     val propertyName: String? = null,
-    val status: String? = "Pending", // Pending, Accepted, Declined
+    val roomId: String? = null,          
+    val baseRentAmount: Double? = 0.0,
+    val status: String? = "Pending",
     val timestamp: Long? = System.currentTimeMillis()
 )
 

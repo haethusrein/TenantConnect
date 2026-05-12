@@ -54,10 +54,6 @@ class SettingsLandlordActivity : AppCompatActivity() {
         }
     }
 
-    // =========================================================================
-    // DIALOG LOGIC & FIREBASE OPERATIONS
-    // =========================================================================
-
     private fun showChangeNameDialog() {
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(50, 40, 50, 10) }
         val etFirst = EditText(this).apply { hint = "First Name"; setText(currentUserData?.firstName) }
@@ -75,7 +71,7 @@ class SettingsLandlordActivity : AppCompatActivity() {
                 FirebaseManager.usersRef.child(uid).updateChildren(mapOf("firstName" to fName, "lastName" to lName))
                     .addOnSuccessListener {
                         Toast.makeText(this, "Name updated!", Toast.LENGTH_SHORT).show()
-                        loadUserData() // Refresh UI
+                        loadUserData()
                     }
             }.setNegativeButton("Cancel", null).show()
     }
@@ -96,7 +92,6 @@ class SettingsLandlordActivity : AppCompatActivity() {
                 val user = FirebaseManager.auth.currentUser ?: return@setPositiveButton
                 val credential = EmailAuthProvider.getCredential(user.email!!, pass)
 
-                // Must re-authenticate before changing sensitive credentials
                 user.reauthenticate(credential).addOnSuccessListener {
                     user.updateEmail(newEmail).addOnSuccessListener {
                         FirebaseManager.usersRef.child(user.uid).child("email").setValue(newEmail)
@@ -137,10 +132,10 @@ class SettingsLandlordActivity : AppCompatActivity() {
         layout.addView(etPassword)
 
         AlertDialog.Builder(this)
-            .setTitle("Delete Landlord Account")
-            .setMessage("WARNING: This will permanently delete your account, your properties, and terminate all tenant contracts. Your tenants will be orphaned and reset to Inactive status.")
+            .setTitle("Delete Account")
+            .setMessage("This action is permanent. All your property, room, and contract records will be erased.")
             .setView(layout)
-            .setPositiveButton("DELETE EVERYTHING") { _, _ ->
+            .setPositiveButton("DELETE") { _, _ ->
                 val pass = etPassword.text.toString().trim()
                 if (pass.isEmpty()) return@setPositiveButton
 
@@ -148,39 +143,50 @@ class SettingsLandlordActivity : AppCompatActivity() {
                 val uid = user.uid
                 val credential = EmailAuthProvider.getCredential(user.email!!, pass)
 
-
                 user.reauthenticate(credential).addOnSuccessListener {
+                    // 1. Find the property
+                    FirebaseManager.propertiesRef.orderByChild("landlordId").equalTo(uid).get().addOnSuccessListener { snapshot ->
+                        val property = snapshot.children.firstOrNull()?.getValue(Property::class.java)
+                        val propId = property?.propertyId
 
-                    FirebaseManager.usersRef.orderByChild("landlordId").equalTo(uid).get().addOnSuccessListener { tSnap ->
-                        for (tenant in tSnap.children) {
-                            tenant.ref.child("landlordId").removeValue() // Detach landlord
-                            tenant.ref.child("status").setValue("Inactive") // Reset status
-                        }
+                        // 2. Delete everything related to this landlord
+                        val updates = hashMapOf<String, Any?>()
+                        if (propId != null) {
+                            updates["properties/$propId"] = null
+                            // Also need to find and delete all rooms for this property
+                            FirebaseManager.roomsRef.orderByChild("propertyId").equalTo(propId).get().addOnSuccessListener { roomSnap ->
+                                for (room in roomSnap.children) { updates["rooms/${room.key}"] = null }
+                                
+                                // And all announcements
+                                FirebaseManager.announcementsRef.orderByChild("propertyId").equalTo(propId).get().addOnSuccessListener { annSnap ->
+                                    for (ann in annSnap.children) { updates["announcements/${ann.key}"] = null }
 
-                        // 2. Delete Properties
-                        FirebaseManager.propertiesRef.orderByChild("landlordId").equalTo(uid).get().addOnSuccessListener { pSnap ->
-                            for (prop in pSnap.children) { prop.ref.removeValue() }
+                                    // And all contracts
+                                    FirebaseManager.contractsRef.orderByChild("landlordId").equalTo(uid).get().addOnSuccessListener { contractSnap ->
+                                        for (contract in contractSnap.children) { updates["contracts/${contract.key}"] = null }
 
-                            // 3. Delete Contracts
-                            FirebaseManager.contractsRef.orderByChild("landlordId").equalTo(uid).get().addOnSuccessListener { cSnap ->
-                                for (contract in cSnap.children) { contract.ref.removeValue() }
-
-                                // 4. Delete pending invitations
-                                FirebaseManager.invitationsRef.orderByChild("landlordId").equalTo(uid).get().addOnSuccessListener { iSnap ->
-                                    for (inv in iSnap.children) { inv.ref.removeValue() }
-
-                                    // 5. Delete Landlord Database Node
-                                    FirebaseManager.usersRef.child(uid).removeValue().addOnSuccessListener {
-
-                                        // 6. Finally, Delete the Landlord Auth Account
-                                        user.delete().addOnSuccessListener {
-                                            Toast.makeText(this, "Account and all property data successfully deleted.", Toast.LENGTH_LONG).show()
-                                            startActivity(Intent(this, LoginActivity::class.java).apply {
-                                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                                            })
-                                            finish()
+                                        FirebaseManager.database.reference.updateChildren(updates).addOnSuccessListener {
+                                            FirebaseManager.usersRef.child(uid).removeValue().addOnSuccessListener {
+                                                user.delete().addOnSuccessListener {
+                                                    Toast.makeText(this, "Account successfully deleted.", Toast.LENGTH_LONG).show()
+                                                    startActivity(Intent(this, LoginActivity::class.java).apply {
+                                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                                    })
+                                                    finish()
+                                                }
+                                            }
                                         }
                                     }
+                                }
+                            }
+                        } else {
+                            // No property found, just delete user and auth
+                            FirebaseManager.usersRef.child(uid).removeValue().addOnSuccessListener {
+                                user.delete().addOnSuccessListener {
+                                    startActivity(Intent(this, LoginActivity::class.java).apply {
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                    })
+                                    finish()
                                 }
                             }
                         }
@@ -203,7 +209,7 @@ class SettingsLandlordActivity : AppCompatActivity() {
             finish()
         }
         binding.bottomNav.navProfile.setOnClickListener {
-            startActivity(Intent(this, LandlordDetailsActivity::class.java))
+            startActivity(Intent(this, ProfileTenantActivity::class.java))
             finish()
         }
     }

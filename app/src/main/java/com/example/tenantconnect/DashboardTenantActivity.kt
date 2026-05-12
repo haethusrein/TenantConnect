@@ -220,14 +220,39 @@ class DashboardTenantActivity : AppCompatActivity() {
             .show()
     }
     private fun acceptInvitation(invitation: Invitation) {
-        val roomDialog = RoomSetupDialog(invitation)
+        val contractId = FirebaseManager.contractsRef.push().key ?: return
+        val tenantUid = invitation.tenantId ?: return
 
-        // Assign the callback to safely reset the flag when closed
-        roomDialog.onDismissCallback = {
-            isDialogShowing = false
-        }
+        val contract = Contract(
+            contractId = contractId,
+            tenantId = tenantUid,
+            landlordId = invitation.landlordId,
+            propertyId = invitation.propertyId,
+            roomId = invitation.roomId,
+            baseRentAmount = invitation.baseRentAmount,
+            status = "Active"
+        )
 
-        roomDialog.show(supportFragmentManager, "RoomSetupDialog")
+        FirebaseManager.contractsRef.child(contractId).setValue(contract)
+            .addOnSuccessListener {
+
+                val userUpdates = mapOf(
+                    "landlordId" to invitation.landlordId,
+                    "propertyId" to invitation.propertyId
+                )
+                FirebaseManager.usersRef.child(tenantUid).updateChildren(userUpdates)
+
+                invitation.invitationId?.let { invId ->
+                    FirebaseManager.invitationsRef.child(invId).child("status").setValue("Accepted")
+                }
+
+                isDialogShowing = false
+                Toast.makeText(this, "Invitation Accepted! Welcome to Unit ${invitation.roomId}.", Toast.LENGTH_LONG).show()
+
+            }.addOnFailureListener {
+                isDialogShowing = false
+                Toast.makeText(this, "Failed to accept invitation.", Toast.LENGTH_SHORT).show()
+            }
     }
 
     private fun declineInvitation(invitation: Invitation) {

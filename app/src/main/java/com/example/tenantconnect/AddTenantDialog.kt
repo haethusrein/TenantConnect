@@ -1,27 +1,22 @@
 package com.example.tenantconnect
 
-import android.app.Dialog
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
-import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import android.view.ViewGroup
-import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import com.example.tenantconnect.databinding.DialogAddTenantBinding
-
+import android.widget.Toast
 import androidx.core.view.isVisible
+import com.example.tenantconnect.databinding.DialogAddTenantBinding
+import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 
 class AddTenantDialog : BottomSheetDialogFragment() {
     private var _binding: DialogAddTenantBinding? = null
     private val binding get() = _binding!!
 
     override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         _binding = DialogAddTenantBinding.inflate(inflater, container, false)
         return binding.root
@@ -29,7 +24,6 @@ class AddTenantDialog : BottomSheetDialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         setupInitialState()
 
         binding.etTenantSearch.addTextChangedListener(object : TextWatcher {
@@ -40,23 +34,23 @@ class AddTenantDialog : BottomSheetDialogFragment() {
             override fun afterTextChanged(s: Editable?) {}
         })
 
-        binding.btnCancel.setOnClickListener {
-            dismiss()
-        }
+        binding.btnCancel.setOnClickListener { dismiss() }
     }
 
     private fun setupInitialState() {
-        binding.btnAddTenant.text = "Search Account"
+        binding.btnAddTenant.text = "Search Account" // Set initial text
+        binding.llRoomSetup.isVisible = false
+        binding.tvSearchResult.isVisible = false
+
+        // This click listener handles the Search phase
         binding.btnAddTenant.setOnClickListener {
             val query = binding.etTenantSearch.text.toString().trim().lowercase()
             if (query.isNotEmpty()) {
                 searchAndAddTenant(query)
             } else {
-                binding.etTenantSearch.error = "Please enter an email address"
-                binding.etTenantSearch.requestFocus()
+                binding.etTenantSearch.error = "Please enter a name or email"
             }
         }
-        binding.tvSearchResult.isVisible = false
     }
 
     private fun showLoading(isLoading: Boolean) {
@@ -67,116 +61,119 @@ class AddTenantDialog : BottomSheetDialogFragment() {
     private fun searchAndAddTenant(query: String) {
         showLoading(true)
         binding.tvSearchResult.isVisible = false
-        // Search by email
-        FirebaseManager.usersRef.orderByChild("email").equalTo(query).get()
+        binding.llRoomSetup.isVisible = false
+
+        // Fetch tenants and perform a smart partial-match search locally
+        FirebaseManager.usersRef.orderByChild("role").equalTo("Tenant").get()
             .addOnSuccessListener { snapshot ->
                 showLoading(false)
-                if (snapshot.exists()) {
-                    val tenantSnapshot = snapshot.children.first()
-                    val tenant = tenantSnapshot.getValue(User::class.java)
-                    
-                    if (tenant != null && tenant.role == "Tenant") {
-                        val sanitizedName = "${tenant.firstName} ${tenant.lastName?.take(1)}."
-                        binding.tvSearchResult.text = "Found: $sanitizedName"
-                        binding.tvSearchResult.setTextColor(binding.root.context.getColor(R.color.navy))
-                        binding.tvSearchResult.isVisible = true
 
-                        val currentLandlordId = FirebaseManager.auth.currentUser?.uid
+                // Find the first tenant whose name or email contains the query
+                val matchedTenantSnap = snapshot.children.firstOrNull { child ->
+                    val t = child.getValue(User::class.java)
+                    t != null && (
+                            t.firstName?.lowercase()?.contains(query) == true ||
+                                    t.lastName?.lowercase()?.contains(query) == true ||
+                                    t.email?.lowercase()?.contains(query) == true
+                            )
+                }
 
-                        if (tenant.landlordId == currentLandlordId && tenant.status == "Active") {
-                            showError("Already Linked", "This user is already your active tenant.")
-                            binding.btnAddTenant.isEnabled = false
-                        } else if (tenant.landlordId != null) {
-                            showError("Already Linked", "This tenant is already linked to another landlord.")
-                            binding.btnAddTenant.isEnabled = false
-                        } else {
-                            binding.btnAddTenant.text = "Send Invitation"
-                            binding.btnAddTenant.setOnClickListener {
-                                checkPendingAndSend(tenantSnapshot.key!!, tenant)
+                if (matchedTenantSnap != null) {
+                    val tenant = matchedTenantSnap.getValue(User::class.java)!!
+                    val tenantUid = matchedTenantSnap.key!!
+
+                    val sanitizedName = "${tenant.firstName} ${tenant.lastName}"
+                    binding.tvSearchResult.text = "Found: $sanitizedName\nEmail: ${tenant.email}"
+                    binding.tvSearchResult.setTextColor(binding.root.context.getColor(R.color.navy))
+                    binding.tvSearchResult.isVisible = true
+
+                    if (tenant.landlordId == null) {
+                        // They are available! Show the room setup fields
+                        binding.llRoomSetup.isVisible = true
+                        binding.btnAddTenant.text = "Send Invitation"
+
+                        binding.btnAddTenant.setOnClickListener {
+                            val roomNum = binding.etRoomNumber.text.toString().trim()
+                            val rentStr = binding.etBaseRent.text.toString().trim()
+
+                            if (roomNum.isEmpty() || rentStr.isEmpty()) {
+                                Toast.makeText(context, "Please assign a unit and base rent.", Toast.LENGTH_SHORT).show()
+                                return@setOnClickListener
                             }
+
+                            sendInvitation(tenantUid, tenant, roomNum, rentStr.toDouble())
                         }
                     } else {
-                        showError("Invalid User", "The account found is not a registered tenant.")
+                        showError("Already Linked", "This tenant is already linked to an active landlord.")
+                        binding.btnAddTenant.isEnabled = false
                     }
                 } else {
-                    showError("Not Found", "No tenant account found with the email: $query")
+                    showError("Not Found", "No tenant account found matching: '$query'")
                 }
             }
             .addOnFailureListener {
                 showLoading(false)
-                showError("Search Error", "Firebase index not defined or connection issue. Please check your database rules.")
-            }
-    }
-
-    private fun checkPendingAndSend(tenantUid: String, tenant: User) {
-        val currentLandlordId = FirebaseManager.auth.currentUser?.uid ?: return
-        showLoading(true)
-
-        // Logic Requirement: Query invitationsRef for the target tenantId
-        FirebaseManager.invitationsRef.orderByChild("tenantId").equalTo(tenantUid).get()
-            .addOnSuccessListener { snapshot ->
-                // Check if an invitation exists and its status is "Pending" from THIS landlord
-                val existingPending = snapshot.children.any { 
-                    it.child("landlordId").getValue(String::class.java) == currentLandlordId &&
-                    it.child("status").getValue(String::class.java) == "Pending"
-                }
-
-                if (existingPending) {
-                    showLoading(false)
-                    Toast.makeText(context, "An invitation is already pending for this tenant", Toast.LENGTH_LONG).show()
-                } else {
-                    sendInvitation(tenantUid, tenant)
-                }
-            }
-            .addOnFailureListener {
-                showLoading(false)
-                Toast.makeText(context, "Error checking invitations: ${it.message}", Toast.LENGTH_SHORT).show()
+                showError("Search Error", "Network issue. Please try again.")
             }
     }
 
     private fun showError(title: String, message: String) {
-        CustomAlertDialog.newInstance(title, message)
-            .show(parentFragmentManager, "CustomAlert")
+        CustomAlertDialog.newInstance(title, message).show(parentFragmentManager, "CustomAlert")
     }
 
-    private fun sendInvitation(tenantUid: String, tenant: User) {
+    private fun sendInvitation(tenantUid: String, tenant: User, roomNum: String, rentAmount: Double) {
         val currentLandlordId = FirebaseManager.auth.currentUser?.uid ?: return
         showLoading(true)
-        
+        binding.btnAddTenant.isEnabled = false
+
+        // Fetch landlord and property info to include in the invitation
         FirebaseManager.usersRef.child(currentLandlordId).get().addOnSuccessListener { userSnapshot ->
             val landlord = userSnapshot.getValue(User::class.java)
-            
+
             FirebaseManager.propertiesRef.orderByChild("landlordId").equalTo(currentLandlordId).get().addOnSuccessListener { propSnapshot ->
                 val property = propSnapshot.children.firstOrNull()?.getValue(Property::class.java)
-                
+
                 if (property == null) {
                     showLoading(false)
                     Toast.makeText(context, "Please complete your property setup first.", Toast.LENGTH_LONG).show()
                     return@addOnSuccessListener
                 }
 
-                val invitationId = FirebaseManager.invitationsRef.push().key ?: return@addOnSuccessListener
-                val invitation = Invitation(
-                    invitationId = invitationId,
-                    tenantId = tenantUid,
-                    landlordId = currentLandlordId,
-                    propertyId = property.propertyId,
-                    landlordName = "${landlord?.firstName} ${landlord?.lastName}",
-                    propertyName = property.propertyName ?: "Your Property"
-                )
+                // Check for duplicate pending invites
+                FirebaseManager.invitationsRef.orderByChild("tenantId").equalTo(tenantUid).get()
+                    .addOnSuccessListener { invSnapshot ->
+                        val hasPending = invSnapshot.children.any {
+                            it.child("landlordId").getValue(String::class.java) == currentLandlordId &&
+                                    it.child("status").getValue(String::class.java) == "Pending"
+                        }
 
-                FirebaseManager.invitationsRef.child(invitationId).setValue(invitation)
-                    .addOnSuccessListener {
-                        showLoading(false)
-                        binding.tvSearchResult.text = "Invitation sent successfully!"
-                        binding.tvSearchResult.setTextColor(binding.root.context.getColor(android.R.color.holo_green_dark))
-                        Toast.makeText(context, "Invitation sent to ${tenant.firstName}!", Toast.LENGTH_LONG).show()
-                        binding.root.postDelayed({ dismiss() }, 1500)
-                    }
-                    .addOnFailureListener {
-                        showLoading(false)
-                        binding.btnAddTenant.isEnabled = true
-                        Toast.makeText(context, "Failed to send invitation: ${it.message}", Toast.LENGTH_SHORT).show()
+                        if (hasPending) {
+                            showLoading(false)
+                            binding.btnAddTenant.isEnabled = true
+                            showError("Duplicate Invitation", "You already have a pending invitation sent to this tenant.")
+                        } else {
+                            // CREATE THE INVITATION WITH ROOM AND RENT INCLUDED
+                            val invitationId = FirebaseManager.invitationsRef.push().key ?: return@addOnSuccessListener
+                            val invitation = Invitation(
+                                invitationId = invitationId,
+                                tenantId = tenantUid,
+                                landlordId = currentLandlordId,
+                                propertyId = property.propertyId,
+                                landlordName = "${landlord?.firstName} ${landlord?.lastName}",
+                                propertyName = property.propertyName ?: "Your Property",
+                                roomId = roomNum,            // Sent by Landlord
+                                baseRentAmount = rentAmount  // Sent by Landlord
+                            )
+
+                            FirebaseManager.invitationsRef.child(invitationId).setValue(invitation)
+                                .addOnSuccessListener {
+                                    showLoading(false)
+                                    binding.tvSearchResult.text = "Invitation sent successfully!"
+                                    binding.tvSearchResult.setTextColor(binding.root.context.getColor(android.R.color.holo_green_dark))
+                                    Toast.makeText(context, "Invitation sent to ${tenant.firstName}!", Toast.LENGTH_LONG).show()
+                                    binding.root.postDelayed({ dismiss() }, 1500)
+                                }
+                        }
                     }
             }
         }

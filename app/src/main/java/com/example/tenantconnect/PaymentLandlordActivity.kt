@@ -41,24 +41,58 @@ class PaymentLandlordActivity : AppCompatActivity() {
     private fun setupRecyclerView() {
         adapter = TenantBillingAdapter { tenant, contract, billing ->
             if (billing == null) {
-                // Show Create Invoice Dialog
-                val dialog = InvoiceDialog(tenant, contract) {
-                    loadBillingData() // Refresh
-                }
+                val dialog = InvoiceDialog(tenant, contract) { loadBillingData() }
                 dialog.show(supportFragmentManager, "InvoiceDialog")
             } else if (billing.status != "Paid") {
-                // Mark as Paid
-                markAsPaid(billing)
+                // If it's unpaid or overdue, landlord can mark as paid
+                // BUT first show proof if available
+                checkProofAndConfirm(billing)
             }
         }
         binding.rvTenantBillings.layoutManager = LinearLayoutManager(this)
         binding.rvTenantBillings.adapter = adapter
     }
 
+    private fun checkProofAndConfirm(billing: Billing) {
+        val bid = billing.billingId ?: return
+        
+        Toast.makeText(this, "Checking for tenant proof...", Toast.LENGTH_SHORT).show()
+
+        // Query transactions for this billing
+        FirebaseManager.transactionsRef.orderByChild("billingId").equalTo(bid).get()
+            .addOnSuccessListener { snapshot ->
+                val transaction = snapshot.children.mapNotNull { it.getValue(PaymentTransaction::class.java) }.firstOrNull()
+                
+                if (transaction != null) {
+                    // Show Proof Dialog
+                    val dialog = ProofOfPaymentDialog(transaction.proofOfPaymentUrl, transaction.referenceNumber)
+                    dialog.show(supportFragmentManager, "ProofOfPaymentDialog")
+                    
+                    // Simple confirm after showing
+                    androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("Confirm Payment")
+                        .setMessage("Tenant has submitted a receipt. Did you receive ₱${String.format(Locale.US, "%.2f", billing.totalAmount)}?")
+                        .setPositiveButton("Yes, Mark Paid") { _, _ -> markAsPaid(billing) }
+                        .setNegativeButton("Not Yet", null)
+                        .show()
+                } else {
+                    // No transaction found, just ask to mark as paid (Cash use case)
+                    androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("Mark as Paid")
+                        .setMessage("No online proof found. Confirm receiving payment of ₱${String.format(Locale.US, "%.2f", billing.totalAmount)} for this tenant?")
+                        .setPositiveButton("Confirm") { _, _ -> markAsPaid(billing) }
+                        .setNegativeButton("Cancel", null)
+                        .show()
+                }
+            }
+            .addOnFailureListener {
+                Toast.makeText(this, "Error: ${it.message}", Toast.LENGTH_SHORT).show()
+            }
+    }
+
     private fun loadBillingData() {
         val currentLandlordId = FirebaseManager.auth.currentUser?.uid ?: return
         
-        // This is a complex query. We need tenants -> their active contracts -> their latest billing.
         FirebaseManager.usersRef.orderByChild("landlordId").equalTo(currentLandlordId).get()
             .addOnSuccessListener { tenantSnapshot ->
                 val tenants = tenantSnapshot.children.mapNotNull { it.getValue(User::class.java) }
@@ -77,25 +111,17 @@ class PaymentLandlordActivity : AppCompatActivity() {
 
                             for (contract in contracts) {
                                 val tenant = tenants.find { it.userId == contract.tenantId } ?: continue
-                                
-                                // Find latest billing for this contract
                                 var latestBilling = billingSnapshot.children
                                     .mapNotNull { it.getValue(Billing::class.java) }
                                     .filter { it.contractId == contract.contractId }
                                     .maxByOrNull { it.dueDate ?: "" }
 
-                                // Requirement: Revert to "Invoice" button a week before next cycle
                                 if (latestBilling?.status == "Paid") {
                                     val calendar = java.util.Calendar.getInstance()
                                     val currentDay = calendar.get(java.util.Calendar.DAY_OF_MONTH)
                                     val dueDay = contract.paymentDueDay ?: 1
-                                    
-                                    // If we are within 7 days of the NEXT due date, hide the old "Paid" status
-                                    // to allow issuing the next month's invoice.
                                     val daysUntilDue = if (dueDay >= currentDay) dueDay - currentDay else (30 - currentDay + dueDay)
-                                    if (daysUntilDue <= 7) {
-                                        latestBilling = null 
-                                    }
+                                    if (daysUntilDue <= 7) latestBilling = null 
                                 }
 
                                 billingItems.add(TenantBillingAdapter.TenantBillingItem(tenant, contract, latestBilling))
@@ -115,7 +141,6 @@ class PaymentLandlordActivity : AppCompatActivity() {
                             binding.tvTotalExpected.text = String.format(Locale.US, "₱%.2f", totalExpected)
                             binding.tvPaidCount.text = paidCount.toString()
                             binding.tvOverdueCount.text = overdueCount.toString()
-                            
                             adapter.submitList(billingItems)
                         }
                     }
@@ -124,16 +149,26 @@ class PaymentLandlordActivity : AppCompatActivity() {
 
     private fun markAsPaid(billing: Billing) {
         val id = billing.billingId ?: return
-        val updates = mapOf(
+        val updates = hashMapOf<String, Any?>(
             "status" to "Paid",
             "datePaid" to System.currentTimeMillis()
         )
         
-        FirebaseManager.billingsRef.child(id).updateChildren(updates)
-            .addOnSuccessListener {
-                Toast.makeText(this, "Payment confirmed!", Toast.LENGTH_SHORT).show()
-                loadBillingData()
-            }
+        // 1. Update the Billing record
+        FirebaseManager.billingsRef.child(id).updateChildren(updates).addOnSuccessListener {
+            
+            // 2. ALSO update the associated Transaction record if it exists
+            FirebaseManager.transactionsRef.orderByChild("billingId").equalTo(id).get()
+                .addOnSuccessListener { snapshot ->
+                    val transId = snapshot.children.firstOrNull()?.key
+                    if (transId != null) {
+                        FirebaseManager.transactionsRef.child(transId).child("verificationStatus").setValue("Verified")
+                    }
+                    
+                    Toast.makeText(this, "Payment and Transaction verified!", Toast.LENGTH_SHORT).show()
+                    loadBillingData()
+                }
+        }
     }
 
     private fun setupMenu() {
@@ -143,11 +178,9 @@ class PaymentLandlordActivity : AppCompatActivity() {
             popup.anchorView = view
             val menuAdapter = object : ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, menuItems) {
                 override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-                    val view = super.getView(position, convertView, parent) as TextView
-                    view.setTextColor(Color.WHITE)
-                    view.setPadding(40, 30, 40, 30)
-                    view.textSize = 14f
-                    return view
+                    val v = super.getView(position, convertView, parent) as TextView
+                    v.setTextColor(Color.WHITE); v.setPadding(40, 30, 40, 30); v.textSize = 14f
+                    return v
                 }
             }
             popup.setAdapter(menuAdapter)
@@ -155,15 +188,9 @@ class PaymentLandlordActivity : AppCompatActivity() {
             popup.setBackgroundDrawable(ColorDrawable("#22223B".toColorInt()))
             popup.setOnItemClickListener { _, _, position, _ ->
                 when (menuItems[position]) {
-                    "Announcements" -> Toast.makeText(this, "Announcements coming soon", Toast.LENGTH_SHORT).show()
-                    "Settings" -> startActivity(Intent(this, SettingsTenantActivity::class.java))
-                    "Log out" -> {
-                        FirebaseManager.auth.signOut()
-                        val intent = Intent(this, LoginActivity::class.java)
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        startActivity(intent)
-                        finishAffinity()
-                    }
+                    "Announcements" -> startActivity(Intent(this, AnnouncementsLandlordActivity::class.java))
+                    "Settings" -> startActivity(Intent(this, SettingsLandlordActivity::class.java))
+                    "Log out" -> { FirebaseManager.auth.signOut(); startActivity(Intent(this, LoginActivity::class.java)); finishAffinity() }
                 }
                 popup.dismiss()
             }
@@ -172,17 +199,9 @@ class PaymentLandlordActivity : AppCompatActivity() {
     }
 
     private fun setupBottomNavigation() {
-        binding.bottomNav.navHome.setOnClickListener {
-            val intent = Intent(this, DashboardLandlordActivity::class.java)
-            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            startActivity(intent)
-        }
-        binding.bottomNav.navNotifications.setOnClickListener {
-            startActivity(Intent(this, InboxLandlordActivity::class.java))
-        }
-        binding.bottomNav.navPayments.setOnClickListener { /* Already here */ }
-        binding.bottomNav.navProfile.setOnClickListener {
-            startActivity(Intent(this, ProfileTenantActivity::class.java))
-        }
+        binding.bottomNav.navHome.setOnClickListener { startActivity(Intent(this, DashboardLandlordActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP }) }
+        binding.bottomNav.navNotifications.setOnClickListener { startActivity(Intent(this, InboxLandlordActivity::class.java)) }
+        binding.bottomNav.navPayments.setOnClickListener { /* here */ }
+        binding.bottomNav.navProfile.setOnClickListener { startActivity(Intent(this, ProfileTenantActivity::class.java)) }
     }
 }

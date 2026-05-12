@@ -3,22 +3,21 @@ package com.example.tenantconnect
 import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
-import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import com.example.tenantconnect.databinding.ActivitySettingsTenantBinding
+import com.example.tenantconnect.databinding.ActivitySettingsLandlordBinding
 import com.google.firebase.auth.EmailAuthProvider
 
-class SettingsTenantActivity : AppCompatActivity() {
-    private lateinit var binding: ActivitySettingsTenantBinding
+class SettingsLandlordActivity : AppCompatActivity() {
+    private lateinit var binding: ActivitySettingsLandlordBinding
     private var currentUserData: User? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivitySettingsTenantBinding.inflate(layoutInflater)
+        binding = ActivitySettingsLandlordBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         setupUI()
@@ -138,10 +137,10 @@ class SettingsTenantActivity : AppCompatActivity() {
         layout.addView(etPassword)
 
         AlertDialog.Builder(this)
-            .setTitle("Delete Account")
-            .setMessage("This action is permanent. All your tenant records and active contracts will be erased from your landlord's system.")
+            .setTitle("Delete Landlord Account")
+            .setMessage("WARNING: This will permanently delete your account, your properties, and terminate all tenant contracts. Your tenants will be orphaned and reset to Inactive status.")
             .setView(layout)
-            .setPositiveButton("DELETE") { _, _ ->
+            .setPositiveButton("DELETE EVERYTHING") { _, _ ->
                 val pass = etPassword.text.toString().trim()
                 if (pass.isEmpty()) return@setPositiveButton
 
@@ -149,26 +148,39 @@ class SettingsTenantActivity : AppCompatActivity() {
                 val uid = user.uid
                 val credential = EmailAuthProvider.getCredential(user.email!!, pass)
 
+
                 user.reauthenticate(credential).addOnSuccessListener {
 
-                    // 1. Delete all contracts associated with this tenant
-                    FirebaseManager.contractsRef.orderByChild("tenantId").equalTo(uid).get().addOnSuccessListener { snapshot ->
-                        for (child in snapshot.children) { child.ref.removeValue() }
+                    FirebaseManager.usersRef.orderByChild("landlordId").equalTo(uid).get().addOnSuccessListener { tSnap ->
+                        for (tenant in tSnap.children) {
+                            tenant.ref.child("landlordId").removeValue() // Detach landlord
+                            tenant.ref.child("status").setValue("Inactive") // Reset status
+                        }
 
-                        // 2. Delete all invitations associated with this tenant
-                        FirebaseManager.invitationsRef.orderByChild("tenantId").equalTo(uid).get().addOnSuccessListener { invSnapshot ->
-                            for (child in invSnapshot.children) { child.ref.removeValue() }
+                        // 2. Delete Properties
+                        FirebaseManager.propertiesRef.orderByChild("landlordId").equalTo(uid).get().addOnSuccessListener { pSnap ->
+                            for (prop in pSnap.children) { prop.ref.removeValue() }
 
-                            // 3. Delete user node from Database
-                            FirebaseManager.usersRef.child(uid).removeValue().addOnSuccessListener {
+                            // 3. Delete Contracts
+                            FirebaseManager.contractsRef.orderByChild("landlordId").equalTo(uid).get().addOnSuccessListener { cSnap ->
+                                for (contract in cSnap.children) { contract.ref.removeValue() }
 
-                                // 4. Delete Auth Account
-                                user.delete().addOnSuccessListener {
-                                    Toast.makeText(this, "Account successfully deleted.", Toast.LENGTH_LONG).show()
-                                    startActivity(Intent(this, LoginActivity::class.java).apply {
-                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                                    })
-                                    finish()
+                                // 4. Delete pending invitations
+                                FirebaseManager.invitationsRef.orderByChild("landlordId").equalTo(uid).get().addOnSuccessListener { iSnap ->
+                                    for (inv in iSnap.children) { inv.ref.removeValue() }
+
+                                    // 5. Delete Landlord Database Node
+                                    FirebaseManager.usersRef.child(uid).removeValue().addOnSuccessListener {
+
+                                        // 6. Finally, Delete the Landlord Auth Account
+                                        user.delete().addOnSuccessListener {
+                                            Toast.makeText(this, "Account and all property data successfully deleted.", Toast.LENGTH_LONG).show()
+                                            startActivity(Intent(this, LoginActivity::class.java).apply {
+                                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                            })
+                                            finish()
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -179,19 +191,19 @@ class SettingsTenantActivity : AppCompatActivity() {
 
     private fun setupBottomNavigation() {
         binding.bottomNav.navHome.setOnClickListener {
-            startActivity(Intent(this, DashboardTenantActivity::class.java))
+            startActivity(Intent(this, DashboardLandlordActivity::class.java))
             finish()
         }
         binding.bottomNav.navNotifications.setOnClickListener {
-            startActivity(Intent(this, InboxTenantActivity::class.java))
+            startActivity(Intent(this, InboxLandlordActivity::class.java))
             finish()
         }
         binding.bottomNav.navPayments.setOnClickListener {
-            startActivity(Intent(this, PaymentTenantActivity::class.java))
+            startActivity(Intent(this, PaymentLandlordActivity::class.java))
             finish()
         }
         binding.bottomNav.navProfile.setOnClickListener {
-            startActivity(Intent(this, ProfileTenantActivity::class.java))
+            startActivity(Intent(this, LandlordDetailsActivity::class.java))
             finish()
         }
     }

@@ -7,6 +7,7 @@
     android:padding="24dp">
 
     <TextView
+        android:id="@+id/tv_dialog_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Post Announcement"
@@ -35,6 +36,18 @@
         android:padding="15dp"
         android:textColor="@color/slate" />
 
+    <TextView
+        android:id="@+id/tv_expiry_picker"
+        android:layout_width="match_parent"
+        android:layout_height="45dp"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/bg_input_field"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="15dp"
+        android:text="Set Expiry Date/Time (Optional)"
+        android:textColor="@color/navy"
+        android:textStyle="bold" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -59,7 +72,7 @@
             android:background="@drawable/bg_button"
             android:backgroundTint="@color/navy"
             android:paddingHorizontal="25dp"
-            android:text="Post"
+            android:text="Save"
             android:textAllCaps="false"
             android:textColor="@android:color/white"
             android:textStyle="bold" />

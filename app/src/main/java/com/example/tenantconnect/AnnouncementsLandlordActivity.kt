@@ -1,5 +1,7 @@
 package com.example.tenantconnect
 
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
@@ -20,6 +22,7 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -36,8 +39,7 @@ class AnnouncementsLandlordActivity : AppCompatActivity() {
         binding.ivBack.setOnClickListener { finish() }
 
         val currentLandlordId = FirebaseManager.auth.currentUser?.uid ?: return
-        
-        // Find the landlord's property first
+
         FirebaseManager.propertiesRef.orderByChild("landlordId").equalTo(currentLandlordId).get()
             .addOnSuccessListener { snapshot ->
                 val property = snapshot.children.firstOrNull()?.getValue(Property::class.java)
@@ -51,7 +53,7 @@ class AnnouncementsLandlordActivity : AppCompatActivity() {
             }
 
         binding.btnPostAnnouncement.setOnClickListener {
-            showPostAnnouncementDialog()
+            showAnnouncementDialog(null) // Pass null to indicate "Create New"
         }
 
         setupMenu()
@@ -64,15 +66,28 @@ class AnnouncementsLandlordActivity : AppCompatActivity() {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     if (isFinishing || isDestroyed) return
                     binding.llAnnouncementsContainer.removeAllViews()
-                    
-                    val announcements = snapshot.children.mapNotNull { it.getValue(Announcement::class.java) }
-                        .sortedByDescending { it.datePosted }
 
-                    if (announcements.isEmpty()) {
+                    val currentTime = System.currentTimeMillis()
+                    val validAnnouncements = mutableListOf<Announcement>()
+
+                    // AUTO-DELETE LOGIC: Clean up the database while sorting
+                    for (annSnapshot in snapshot.children) {
+                        val ann = annSnapshot.getValue(Announcement::class.java) ?: continue
+                        if (ann.expiryDate != null && ann.expiryDate < currentTime) {
+                            // Target is expired. Delete it from Firebase permanently.
+                            annSnapshot.ref.removeValue()
+                        } else {
+                            validAnnouncements.add(ann)
+                        }
+                    }
+
+                    val sortedAnnouncements = validAnnouncements.sortedByDescending { it.datePosted ?: 0L }
+
+                    if (sortedAnnouncements.isEmpty()) {
                         showNoAnnouncements()
                     } else {
                         var index = 1
-                        for (ann in announcements) {
+                        for (ann in sortedAnnouncements) {
                             addAnnouncementCard(index++, ann)
                         }
                     }
@@ -83,24 +98,32 @@ class AnnouncementsLandlordActivity : AppCompatActivity() {
 
     private fun addAnnouncementCard(index: Int, ann: Announcement) {
         val card = LayoutInflater.from(this).inflate(R.layout.item_announcement, binding.llAnnouncementsContainer, false)
-        
+
         card.findViewById<TextView>(R.id.tv_num).text = index.toString()
         card.findViewById<TextView>(R.id.tv_description).text = ann.description
         card.findViewById<TextView>(R.id.tv_category).text = ann.title ?: "Broadcast"
-        
-        val sdf = SimpleDateFormat("MM/dd/yy", Locale.US)
-        val dateStr = sdf.format(Date(ann.datePosted ?: 0L))
-        card.findViewById<TextView>(R.id.tv_date).text = "$dateStr - ${ann.status}"
 
-        // Landlord-only CRUD: Long click to delete
+        val sdf = SimpleDateFormat("MM/dd/yy h:mm a", Locale.US)
+        val dateStr = sdf.format(Date(ann.datePosted ?: 0L))
+        var badgeText = "$dateStr - ${ann.status}"
+
+        if (ann.expiryDate != null) {
+            badgeText += " (Expires: ${sdf.format(Date(ann.expiryDate))})"
+        }
+
+        card.findViewById<TextView>(R.id.tv_date).text = badgeText
+
+        // UPDATED: Edit / Delete Menu
         card.setOnLongClickListener {
+            val options = arrayOf("Edit", "Delete")
             AlertDialog.Builder(this)
-                .setTitle("Delete Announcement")
-                .setMessage("Are you sure you want to delete this announcement?")
-                .setPositiveButton("Delete") { _, _ ->
-                    ann.announcementId?.let { FirebaseManager.announcementsRef.child(it).removeValue() }
+                .setTitle("Manage Announcement")
+                .setItems(options) { _, which ->
+                    when (which) {
+                        0 -> showAnnouncementDialog(ann) // Edit
+                        1 -> ann.announcementId?.let { FirebaseManager.announcementsRef.child(it).removeValue() } // Delete
+                    }
                 }
-                .setNegativeButton("Cancel", null)
                 .show()
             true
         }
@@ -118,16 +141,48 @@ class AnnouncementsLandlordActivity : AppCompatActivity() {
         binding.llAnnouncementsContainer.addView(tv)
     }
 
-    private fun showPostAnnouncementDialog() {
+    // Handles BOTH Create and Edit modes
+    private fun showAnnouncementDialog(existingAnn: Announcement?) {
         val dialogView = layoutInflater.inflate(R.layout.dialog_post_announcement, null)
+        val tvDialogTitle = dialogView.findViewById<TextView>(R.id.tv_dialog_title)
         val etTitle = dialogView.findViewById<EditText>(R.id.et_announcement_title)
         val etDesc = dialogView.findViewById<EditText>(R.id.et_announcement_desc)
+        val tvExpiry = dialogView.findViewById<TextView>(R.id.tv_expiry_picker)
+
+        var selectedExpiryTime: Long? = existingAnn?.expiryDate
+
+        // Pre-fill if editing
+        if (existingAnn != null) {
+            tvDialogTitle.text = "Edit Announcement"
+            etTitle.setText(existingAnn.title)
+            etDesc.setText(existingAnn.description)
+            if (selectedExpiryTime != null) {
+                val sdf = SimpleDateFormat("MMM dd, yyyy h:mm a", Locale.US)
+                tvExpiry.text = "Expires: ${sdf.format(Date(selectedExpiryTime!!))}"
+            }
+        }
 
         val dialog = AlertDialog.Builder(this)
             .setView(dialogView)
             .create()
-        
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        // Trigger Date/Time Picker
+        tvExpiry.setOnClickListener {
+            val calendar = Calendar.getInstance()
+            DatePickerDialog(this, { _, year, month, day ->
+                calendar.set(year, month, day)
+                TimePickerDialog(this, { _, hour, minute ->
+                    calendar.set(Calendar.HOUR_OF_DAY, hour)
+                    calendar.set(Calendar.MINUTE, minute)
+
+                    selectedExpiryTime = calendar.timeInMillis
+                    val sdf = SimpleDateFormat("MMM dd, yyyy h:mm a", Locale.US)
+                    tvExpiry.text = "Expires: ${sdf.format(calendar.time)}"
+
+                }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), false).show()
+            }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show()
+        }
 
         dialogView.findViewById<View>(R.id.btn_cancel).setOnClickListener { dialog.dismiss() }
         dialogView.findViewById<View>(R.id.btn_post).setOnClickListener {
@@ -139,26 +194,26 @@ class AnnouncementsLandlordActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            postAnnouncement(title, desc)
+            // Save to Firebase (Push new or overwrite existing)
+            val id = existingAnn?.announcementId ?: FirebaseManager.announcementsRef.push().key ?: return@setOnClickListener
+
+            val ann = Announcement(
+                announcementId = id,
+                propertyId = propertyId,
+                title = title,
+                description = desc,
+                datePosted = existingAnn?.datePosted ?: System.currentTimeMillis(), // Keep original date if editing
+                expiryDate = selectedExpiryTime
+            )
+
+            FirebaseManager.announcementsRef.child(id).setValue(ann)
+                .addOnSuccessListener {
+                    val msg = if (existingAnn == null) "Announcement Posted!" else "Announcement Updated!"
+                    Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+                }
             dialog.dismiss()
         }
         dialog.show()
-    }
-
-    private fun postAnnouncement(title: String, desc: String) {
-        val id = FirebaseManager.announcementsRef.push().key ?: return
-        val ann = Announcement(
-            announcementId = id,
-            propertyId = propertyId,
-            title = title,
-            description = desc,
-            datePosted = System.currentTimeMillis()
-        )
-
-        FirebaseManager.announcementsRef.child(id).setValue(ann)
-            .addOnSuccessListener {
-                Toast.makeText(this, "Announcement Posted!", Toast.LENGTH_SHORT).show()
-            }
     }
 
     override fun onDestroy() {
@@ -186,7 +241,7 @@ class AnnouncementsLandlordActivity : AppCompatActivity() {
             popup.setOnItemClickListener { _, _, position, _ ->
                 when (menuItems[position]) {
                     "Announcements" -> { /* Already here */ }
-                    "Settings" -> startActivity(Intent(this, SettingsTenantActivity::class.java))
+                    "Settings" -> startActivity(Intent(this, SettingsLandlordActivity::class.java))
                     "Log out" -> {
                         FirebaseManager.auth.signOut()
                         startActivity(Intent(this, LoginActivity::class.java))
@@ -212,7 +267,7 @@ class AnnouncementsLandlordActivity : AppCompatActivity() {
             startActivity(Intent(this, PaymentLandlordActivity::class.java))
         }
         binding.bottomNav.navProfile.setOnClickListener {
-            startActivity(Intent(this, ProfileTenantActivity::class.java))
+            startActivity(Intent(this, LandlordDetailsActivity::class.java))
         }
     }
 }

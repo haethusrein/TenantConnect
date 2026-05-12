@@ -3,7 +3,6 @@ package com.example.tenantconnect
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
-import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
@@ -25,6 +24,7 @@ class DashboardLandlordActivity : AppCompatActivity() {
     private var propertyListener: ValueEventListener? = null
     private var contractListener: ValueEventListener? = null
     private var earningsListener: ValueEventListener? = null
+    private var announcementsListener: ValueEventListener? = null // NEW LISTENER
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,7 +40,6 @@ class DashboardLandlordActivity : AppCompatActivity() {
             loadLandlordInfo(userId)
         }
 
-        // Handle direct redirection from setup with a popup
         if (intent.getBooleanExtra("SHOW_ADD_TENANT", false)) {
             showAddTenantDialog()
         }
@@ -72,6 +71,9 @@ class DashboardLandlordActivity : AppCompatActivity() {
                     val property = snapshot.children.firstOrNull()?.getValue(Property::class.java)
                     if (property != null) {
                         binding.tvTotalRooms.text = (property.totalRooms ?: 0).toString()
+
+                        // NEW: Once we have the property ID, load the latest announcement!
+                        property.propertyId?.let { loadRecentAnnouncement(it) }
                     }
                 }
 
@@ -79,6 +81,37 @@ class DashboardLandlordActivity : AppCompatActivity() {
             })
     }
 
+    private fun loadRecentAnnouncement(propertyId: String) {
+        announcementsListener?.let { FirebaseManager.announcementsRef.removeEventListener(it) }
+
+        announcementsListener = FirebaseManager.announcementsRef.orderByChild("propertyId").equalTo(propertyId)
+            .addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (isFinishing || isDestroyed) return
+
+                    val currentTime = System.currentTimeMillis()
+
+                    // Filter out expired announcements, then sort by newest first
+                    val validAnnouncements = snapshot.children.mapNotNull { it.getValue(Announcement::class.java) }
+                        .filter { it.expiryDate == null || it.expiryDate > currentTime }
+                        .sortedByDescending { it.datePosted ?: 0L }
+
+                    if (validAnnouncements.isNotEmpty()) {
+                        val latest = validAnnouncements.first()
+
+                        // UPDATED: Now it only displays the title!
+                        binding.tvAnnouncementsEmpty.text = "Latest: ${latest.title ?: "Broadcast"}"
+                        binding.tvAnnouncementsEmpty.alpha = 1.0f // Make it fully visible
+
+                    } else {
+                        binding.tvAnnouncementsEmpty.text = "No active announcements."
+                        binding.tvAnnouncementsEmpty.alpha = 0.7f // Dim it slightly
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {}
+            })
+    }
     private fun listenForOccupancy(userId: String) {
         contractListener = FirebaseManager.contractsRef.orderByChild("landlordId").equalTo(userId)
             .addValueEventListener(object : ValueEventListener {
@@ -95,17 +128,14 @@ class DashboardLandlordActivity : AppCompatActivity() {
     }
 
     private fun listenForEarnings(userId: String) {
-        // Earnings are calculated from Paid billings belonging to this landlord's contracts
         earningsListener = FirebaseManager.billingsRef.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 if (isFinishing || isDestroyed) return
-                
-                // 1. Get all contracts for this landlord first
+
                 FirebaseManager.contractsRef.orderByChild("landlordId").equalTo(userId).get()
                     .addOnSuccessListener { contractSnapshot ->
                         val myContractIds = contractSnapshot.children.mapNotNull { it.key }
-                        
-                        // 2. Sum up 'Paid' billings linked to those contracts
+
                         var totalEarnings = 0.0
                         for (billSnap in snapshot.children) {
                             val bill = billSnap.getValue(Billing::class.java)
@@ -113,20 +143,13 @@ class DashboardLandlordActivity : AppCompatActivity() {
                                 totalEarnings += (bill.totalAmount ?: 0.0)
                             }
                         }
-                        
+
                         binding.tvCurrentEarnings.text = String.format(Locale.US, "₱%.2f", totalEarnings)
                     }
             }
 
             override fun onCancelled(error: DatabaseError) {}
         })
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        propertyListener?.let { FirebaseManager.propertiesRef.removeEventListener(it) }
-        contractListener?.let { FirebaseManager.contractsRef.removeEventListener(it) }
-        earningsListener?.let { FirebaseManager.billingsRef.removeEventListener(it) }
     }
 
     private fun loadLandlordInfo(userId: String) {
@@ -148,38 +171,47 @@ class DashboardLandlordActivity : AppCompatActivity() {
         FirebaseManager.propertiesRef.orderByChild("landlordId").equalTo(userId).get()
             .addOnSuccessListener { snapshot ->
                 if (!snapshot.exists()) {
-                    // No property found, redirect to setup
                     val intent = Intent(this, LandlordDetailsActivity::class.java)
                     intent.putExtra("LANDLORD_ID", userId)
                     startActivity(intent)
-                    finish() // Close dashboard so user must complete setup
+                    finish()
                 }
             }
     }
 
     private fun logout() {
-        // 1. Remove all active listeners to prevent "Permission Denied" errors
         propertyListener?.let { FirebaseManager.propertiesRef.removeEventListener(it) }
         contractListener?.let { FirebaseManager.contractsRef.removeEventListener(it) }
+        earningsListener?.let { FirebaseManager.billingsRef.removeEventListener(it) }
+        announcementsListener?.let { FirebaseManager.announcementsRef.removeEventListener(it) } // Safely remove listener
+
         propertyListener = null
         contractListener = null
+        earningsListener = null
+        announcementsListener = null
 
-        // 2. Perform sign out
         FirebaseManager.auth.signOut()
 
-        // 3. Redirect to login
         val intent = Intent(this, LoginActivity::class.java)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         startActivity(intent)
         finishAffinity()
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        propertyListener?.let { FirebaseManager.propertiesRef.removeEventListener(it) }
+        contractListener?.let { FirebaseManager.contractsRef.removeEventListener(it) }
+        earningsListener?.let { FirebaseManager.billingsRef.removeEventListener(it) }
+        announcementsListener?.let { FirebaseManager.announcementsRef.removeEventListener(it) }
+    }
+
     private fun setupMenu(view: View) {
         val menuItems = arrayOf("Announcements", "Settings", "Log Out")
-        
+
         val popup = ListPopupWindow(this)
         popup.anchorView = view
-        
+
         val adapter = object : ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, menuItems) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val view = super.getView(position, convertView, parent) as TextView
@@ -189,18 +221,18 @@ class DashboardLandlordActivity : AppCompatActivity() {
                 return view
             }
         }
-        
+
         popup.setAdapter(adapter)
-        popup.width = 600 
+        popup.width = 600
         popup.setBackgroundDrawable(ColorDrawable("#22223B".toColorInt()))
-        
+
         popup.setOnItemClickListener { _, _, position, _ ->
             when (menuItems[position]) {
                 "Announcements" -> {
-                    Toast.makeText(this, "Announcements coming soon", Toast.LENGTH_SHORT).show()
+                    startActivity(Intent(this, AnnouncementsLandlordActivity::class.java))
                 }
                 "Settings" -> {
-                    startActivity(Intent(this, SettingsTenantActivity::class.java))
+                    startActivity(Intent(this, SettingsLandlordActivity::class.java))
                 }
                 "Log Out" -> {
                     popup.dismiss()
@@ -212,19 +244,8 @@ class DashboardLandlordActivity : AppCompatActivity() {
         popup.show()
     }
 
-    private fun loadLandlordData(userId: String) {
-        // Handled by real-time listeners
-    }
-
-    private fun showAddTenantDialog() {
-        val dialog = AddTenantDialog()
-        dialog.show(supportFragmentManager, "AddTenantDialog")
-    }
-
     private fun setupBottomNavigation() {
-        binding.bottomNav.navHome.setOnClickListener {
-            // Already here
-        }
+        binding.bottomNav.navHome.setOnClickListener { }
 
         binding.bottomNav.navNotifications.setOnClickListener {
             startActivity(Intent(this, InboxLandlordActivity::class.java))
@@ -235,7 +256,12 @@ class DashboardLandlordActivity : AppCompatActivity() {
         }
 
         binding.bottomNav.navProfile.setOnClickListener {
-            startActivity(Intent(this, ProfileTenantActivity::class.java))
+            startActivity(Intent(this, LandlordDetailsActivity::class.java))
         }
+    }
+
+    private fun showAddTenantDialog() {
+        val dialog = AddTenantDialog()
+        dialog.show(supportFragmentManager, "AddTenantDialog")
     }
 }

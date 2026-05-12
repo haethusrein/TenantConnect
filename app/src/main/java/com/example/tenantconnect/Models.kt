@@ -89,7 +89,8 @@ data class Announcement(
     val description: String? = null,
     val category: String? = null,
     val status: String? = "Active",
-    val datePosted: Long? = System.currentTimeMillis()
+    val datePosted: Long? = System.currentTimeMillis(),
+    val expiryDate: Long? = null // <-- NEW FIELD ADDED HERE
 )
 
 @IgnoreExtraProperties
@@ -112,20 +113,6 @@ data class Invitation(
     val landlordName: String? = null,
     val propertyName: String? = null,
     val status: String? = "Pending", // Pending, Accepted, Declined
-    val timestamp: Long? = System.currentTimeMillis()
-)
-
-@IgnoreExtraProperties
-data class MaintenanceRequest(
-    val ticketId: String? = null,
-    val propertyId: String? = null,
-    val roomId: String? = null,
-    val tenantId: String? = null,
-    val title: String? = null,
-    val description: String? = null,
-    val urgency: String? = "Medium", // Low, Medium, High
-    val status: String? = "Open", // Open, InProgress, Resolved
-    val photoUrl: String? = null,
     val timestamp: Long? = System.currentTimeMillis()
 )
 

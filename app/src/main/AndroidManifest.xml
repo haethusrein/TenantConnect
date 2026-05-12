@@ -26,6 +26,7 @@
         <activity android:name=".InboxTenantActivity" />
         <activity android:name=".ProfileTenantActivity" />
         <activity android:name=".SettingsTenantActivity" />
+        <activity android:name=".SettingsLandlordActivity" />
         <activity android:name=".PaymentHistoryTenantActivity" />
         <activity android:name=".PaymentDetailsTenantActivity" />
         <activity android:name=".ViewContractActivity" />

@@ -74,8 +74,12 @@ class AnnouncementsTenantActivity : AppCompatActivity() {
                     if (isFinishing || isDestroyed) return
                     binding.llAnnouncementsContainer.removeAllViews()
 
+                    val currentTime = System.currentTimeMillis()
+
+                    // Filter out announcements that have an expiryDate in the past
                     val announcements = snapshot.children.mapNotNull { it.getValue(Announcement::class.java) }
-                        .sortedByDescending { it.datePosted }
+                        .filter { it.expiryDate == null || it.expiryDate > currentTime }
+                        .sortedByDescending { it.datePosted ?: 0L }
 
                     if (announcements.isEmpty()) {
                         showNoAnnouncements("No announcements yet for this property.")

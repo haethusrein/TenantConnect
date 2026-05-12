@@ -117,10 +117,15 @@ class DashboardLandlordActivity : AppCompatActivity() {
             .addValueEventListener(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     if (isFinishing || isDestroyed) return
-                    val occupiedCount = snapshot.children.count {
-                        it.child("status").getValue(String::class.java) == "Active"
-                    }
-                    binding.tvOccupiedRooms.text = occupiedCount.toString()
+                    
+                    // Count unique room IDs that have an "Active" status
+                    val uniqueOccupiedRooms = snapshot.children.mapNotNull { it.getValue(Contract::class.java) }
+                        .filter { it.status == "Active" }
+                        .mapNotNull { it.roomId }
+                        .distinct()
+                        .size
+                        
+                    binding.tvOccupiedRooms.text = uniqueOccupiedRooms.toString()
                 }
 
                 override fun onCancelled(error: DatabaseError) {}

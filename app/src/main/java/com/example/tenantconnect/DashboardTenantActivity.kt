@@ -209,7 +209,7 @@ class DashboardTenantActivity : AppCompatActivity() {
             .setTitle("Tenant Invitation")
             .setMessage("Landlord ${invitation.landlordName} from ${invitation.propertyName} wants to add you as a tenant. Do you accept?")
             .setPositiveButton("Accept") { _, _ ->
-                isDialogShowing = false
+                // Removed: isDialogShowing = false
                 acceptInvitation(invitation)
             }
             .setNegativeButton("Decline") { _, _ ->
@@ -219,9 +219,14 @@ class DashboardTenantActivity : AppCompatActivity() {
             .setCancelable(false)
             .show()
     }
-
     private fun acceptInvitation(invitation: Invitation) {
         val roomDialog = RoomSetupDialog(invitation)
+
+        // Assign the callback to safely reset the flag when closed
+        roomDialog.onDismissCallback = {
+            isDialogShowing = false
+        }
+
         roomDialog.show(supportFragmentManager, "RoomSetupDialog")
     }
 

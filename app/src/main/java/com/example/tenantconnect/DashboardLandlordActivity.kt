@@ -54,8 +54,7 @@ class DashboardLandlordActivity : AppCompatActivity() {
         }
 
         binding.btnManageAnnouncements.setOnClickListener {
-            // Placeholder for managing announcements
-            Toast.makeText(this, "Announcements Management coming soon", Toast.LENGTH_SHORT).show()
+            startActivity(Intent(this, AnnouncementsLandlordActivity::class.java))
         }
 
         binding.ivMenu.setOnClickListener { view ->

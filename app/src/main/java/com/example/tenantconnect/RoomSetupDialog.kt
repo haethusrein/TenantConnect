@@ -1,18 +1,20 @@
 package com.example.tenantconnect
 
-import android.app.Dialog
+import android.content.DialogInterface
 import android.os.Bundle
 import android.view.LayoutInflater
-import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import android.view.View
 import android.view.ViewGroup
-import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import android.widget.Toast
 import com.example.tenantconnect.databinding.DialogRoomSetupBinding
+import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 
 class RoomSetupDialog(private val invitation: Invitation) : BottomSheetDialogFragment() {
     private var _binding: DialogRoomSetupBinding? = null
     private val binding get() = _binding!!
+
+    // 1. Add this variable right below your binding variables
+    var onDismissCallback: (() -> Unit)? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -49,6 +51,11 @@ class RoomSetupDialog(private val invitation: Invitation) : BottomSheetDialogFra
         binding.btnCancel.setOnClickListener {
             dismiss()
         }
+    }
+
+    override fun onDismiss(dialog: DialogInterface) {
+        super.onDismiss(dialog)
+        onDismissCallback?.invoke()
     }
 
     private fun finalizeSetup(roomNumber: String, rentAmount: Double) {

@@ -81,14 +81,19 @@ class AddTenantDialog : BottomSheetDialogFragment() {
                         binding.tvSearchResult.setTextColor(binding.root.context.getColor(R.color.navy))
                         binding.tvSearchResult.isVisible = true
 
-                        if (tenant.landlordId == null) {
+                        val currentLandlordId = FirebaseManager.auth.currentUser?.uid
+
+                        if (tenant.landlordId == currentLandlordId && tenant.status == "Active") {
+                            showError("Already Linked", "This user is already your active tenant.")
+                            binding.btnAddTenant.isEnabled = false
+                        } else if (tenant.landlordId != null) {
+                            showError("Already Linked", "This tenant is already linked to another landlord.")
+                            binding.btnAddTenant.isEnabled = false
+                        } else {
                             binding.btnAddTenant.text = "Send Invitation"
                             binding.btnAddTenant.setOnClickListener {
-                                sendInvitation(tenantSnapshot.key!!, tenant)
+                                checkPendingAndSend(tenantSnapshot.key!!, tenant)
                             }
-                        } else {
-                            showError("Already Linked", "This tenant is already linked to a landlord.")
-                            binding.btnAddTenant.isEnabled = false
                         }
                     } else {
                         showError("Invalid User", "The account found is not a registered tenant.")
@@ -103,6 +108,32 @@ class AddTenantDialog : BottomSheetDialogFragment() {
             }
     }
 
+    private fun checkPendingAndSend(tenantUid: String, tenant: User) {
+        val currentLandlordId = FirebaseManager.auth.currentUser?.uid ?: return
+        showLoading(true)
+
+        // Logic Requirement: Query invitationsRef for the target tenantId
+        FirebaseManager.invitationsRef.orderByChild("tenantId").equalTo(tenantUid).get()
+            .addOnSuccessListener { snapshot ->
+                // Check if an invitation exists and its status is "Pending" from THIS landlord
+                val existingPending = snapshot.children.any { 
+                    it.child("landlordId").getValue(String::class.java) == currentLandlordId &&
+                    it.child("status").getValue(String::class.java) == "Pending"
+                }
+
+                if (existingPending) {
+                    showLoading(false)
+                    Toast.makeText(context, "An invitation is already pending for this tenant", Toast.LENGTH_LONG).show()
+                } else {
+                    sendInvitation(tenantUid, tenant)
+                }
+            }
+            .addOnFailureListener {
+                showLoading(false)
+                Toast.makeText(context, "Error checking invitations: ${it.message}", Toast.LENGTH_SHORT).show()
+            }
+    }
+
     private fun showError(title: String, message: String) {
         CustomAlertDialog.newInstance(title, message)
             .show(parentFragmentManager, "CustomAlert")
@@ -111,9 +142,7 @@ class AddTenantDialog : BottomSheetDialogFragment() {
     private fun sendInvitation(tenantUid: String, tenant: User) {
         val currentLandlordId = FirebaseManager.auth.currentUser?.uid ?: return
         showLoading(true)
-        binding.btnAddTenant.isEnabled = false
         
-        // Fetch landlord and property info to include in the invitation
         FirebaseManager.usersRef.child(currentLandlordId).get().addOnSuccessListener { userSnapshot ->
             val landlord = userSnapshot.getValue(User::class.java)
             
@@ -142,8 +171,6 @@ class AddTenantDialog : BottomSheetDialogFragment() {
                         binding.tvSearchResult.text = "Invitation sent successfully!"
                         binding.tvSearchResult.setTextColor(binding.root.context.getColor(android.R.color.holo_green_dark))
                         Toast.makeText(context, "Invitation sent to ${tenant.firstName}!", Toast.LENGTH_LONG).show()
-                        
-                        // Briefly show success before dismissing
                         binding.root.postDelayed({ dismiss() }, 1500)
                     }
                     .addOnFailureListener {

@@ -12,8 +12,11 @@ import android.widget.ListPopupWindow
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.graphics.toColorInt
 import com.example.tenantconnect.databinding.ActivityAnnouncementsTenantBinding
 import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.ValueEventListener
 
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -21,6 +24,7 @@ import java.util.Locale
 
 class AnnouncementsTenantActivity : AppCompatActivity() {
     private lateinit var binding: ActivityAnnouncementsTenantBinding
+    private var announcementsListener: ValueEventListener? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,80 +43,85 @@ class AnnouncementsTenantActivity : AppCompatActivity() {
     }
 
     private fun loadAnnouncements(userId: String) {
-        // First get the tenant's property ID
+        // First get the tenant's active contract to find the propertyId
         FirebaseManager.contractsRef.orderByChild("tenantId").equalTo(userId).get()
             .addOnSuccessListener { snapshot ->
-                val activeContract = snapshot.children.firstOrNull { 
-                    it.child("status").getValue(String::class.java) == "Active" 
-                }?.getValue(Contract::class.java)
+                val activeContract = snapshot.children.mapNotNull { it.getValue(Contract::class.java) }
+                    .firstOrNull { it.status == "Active" }
 
                 if (activeContract != null) {
                     val propertyId = activeContract.propertyId
                     if (propertyId != null) {
-                        fetchAnnouncements(propertyId)
+                        listenForAnnouncements(propertyId)
                     } else {
-                        showNoAnnouncements("No property linked to your contract.")
+                        // Fallback: Check user profile for propertyId
+                        FirebaseManager.usersRef.child(userId).child("propertyId").get().addOnSuccessListener { userSnap ->
+                            val fallbackId = userSnap.getValue(String::class.java)
+                            if (fallbackId != null) listenForAnnouncements(fallbackId)
+                            else showNoAnnouncements("No property linked to your stay.")
+                        }
                     }
                 } else {
-                    showNoAnnouncements("no accommodation. Please tell your landlord to register you as their tenant.")
+                    showNoAnnouncements("You don't have an active accommodation yet.")
                 }
             }
     }
 
-    private fun fetchAnnouncements(propertyId: String) {
-        FirebaseManager.announcementsRef.orderByChild("propertyId").equalTo(propertyId).get()
-            .addOnSuccessListener { snapshot ->
-                binding.cvAnnouncementItem1.visibility = View.GONE
-                binding.llAnnouncementsContainer.removeAllViews()
+    private fun listenForAnnouncements(propertyId: String) {
+        announcementsListener = FirebaseManager.announcementsRef.orderByChild("propertyId").equalTo(propertyId)
+            .addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (isFinishing || isDestroyed) return
+                    binding.llAnnouncementsContainer.removeAllViews()
 
-                if (!snapshot.exists()) {
-                    showNoAnnouncements("No announcements yet for this property.")
-                    return@addOnSuccessListener
-                }
+                    val announcements = snapshot.children.mapNotNull { it.getValue(Announcement::class.java) }
+                        .sortedByDescending { it.datePosted }
 
-                var index = 1
-                for (child in snapshot.children.reversed()) {
-                    val announcement = child.getValue(Announcement::class.java)
-                    if (announcement != null) {
-                        addAnnouncementCard(index++, announcement)
+                    if (announcements.isEmpty()) {
+                        showNoAnnouncements("No announcements yet for this property.")
+                    } else {
+                        var index = 1
+                        for (ann in announcements) {
+                            addAnnouncementCard(index++, ann)
+                        }
                     }
                 }
-            }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Toast.makeText(this@AnnouncementsTenantActivity, "Error: ${error.message}", Toast.LENGTH_SHORT).show()
+                }
+            })
     }
 
     private fun addAnnouncementCard(index: Int, announcement: Announcement) {
         val card = LayoutInflater.from(this).inflate(R.layout.item_announcement, binding.llAnnouncementsContainer, false)
         
-        val tvNum = card.findViewById<TextView>(R.id.tv_num)
-        val tvDesc = card.findViewById<TextView>(R.id.tv_description)
-        val tvCategory = card.findViewById<TextView>(R.id.tv_category)
-        val tvDate = card.findViewById<TextView>(R.id.tv_date)
-
-        tvNum.text = index.toString()
-        tvDesc.text = announcement.description
-        tvCategory.text = announcement.category ?: "General"
+        card.findViewById<TextView>(R.id.tv_num).text = index.toString()
+        card.findViewById<TextView>(R.id.tv_description).text = announcement.description
+        card.findViewById<TextView>(R.id.tv_category).text = announcement.title ?: "Broadcast"
         
         val sdf = SimpleDateFormat("MM/dd/yy", Locale.US)
         val dateStr = sdf.format(Date(announcement.datePosted ?: 0L))
-        tvDate.text = "$dateStr - ${announcement.status}"
+        card.findViewById<TextView>(R.id.tv_date).text = "$dateStr - ${announcement.status}"
 
         binding.llAnnouncementsContainer.addView(card)
     }
 
     private fun showNoAnnouncements(message: String) {
-        binding.cvAnnouncementItem1.visibility = View.GONE
         binding.llAnnouncementsContainer.removeAllViews()
         val noAnnMsg = TextView(this).apply {
             text = message
-            setTextColor(Color.WHITE)
+            setTextColor(Color.GRAY)
             textSize = 14f
-            setPadding(0, 20, 0, 0)
+            setPadding(0, 40, 0, 0)
+            textAlignment = View.TEXT_ALIGNMENT_CENTER
         }
         binding.llAnnouncementsContainer.addView(noAnnMsg)
     }
 
-    private fun checkAnnouncementsStatus(userId: String) {
-        // Handled by loadAnnouncements
+    override fun onDestroy() {
+        super.onDestroy()
+        announcementsListener?.let { FirebaseManager.announcementsRef.removeEventListener(it) }
     }
 
     private fun setupMenu() {
@@ -131,7 +140,7 @@ class AnnouncementsTenantActivity : AppCompatActivity() {
             }
             popup.setAdapter(adapter)
             popup.width = 600
-            popup.setBackgroundDrawable(ColorDrawable(Color.parseColor("#22223B")))
+            popup.setBackgroundDrawable(ColorDrawable("#22223B".toColorInt()))
             popup.setOnItemClickListener { _, _, position, _ ->
                 when (menuItems[position]) {
                     "Announcements" -> { /* Already here */ }
